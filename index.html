@@ -157,6 +157,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .stato-Ordine-inviato{background:#F59E0B;}
 .stato-Chiusa{background:#22C55E;}
 .loading{text-align:center;padding:40px;color:var(--text3);font-size:13px;}
+.pay-mode-btn{padding:6px 12px;border-radius:var(--radius);border:1.5px solid var(--border2);background:var(--surface);color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.pay-mode-btn:hover{border-color:var(--orange);color:var(--orange);}
+.pay-mode-btn.active{border-color:var(--orange);background:var(--orange-bg);color:var(--orange-dk);font-weight:600;}
+.rata-row{display:grid;grid-template-columns:80px 80px 1fr 1fr 1fr;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);}
+.rata-row:last-child{border-bottom:none;}
+.rata-row label{font-size:10px;color:var(--text3);display:block;margin-bottom:3px;}
 @media(max-width:800px){
   .metrics{grid-template-columns:repeat(2,1fr);}
   .main{padding:14px;}
@@ -253,6 +259,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <img class="topbar-logo" src="logo.jpg" alt="Leta">
       <div class="nav-tabs">
         <button class="nav-tab active" onclick="showView('commesse',this)">Commesse</button>
+        <button class="nav-tab" onclick="showView('ordini',this)">Ordini</button>
         <button class="nav-tab" onclick="showView('report',this)">Report</button>
         <button class="nav-tab" onclick="showView('pannello',this)">⚙ Pannello</button>
       </div>
@@ -263,6 +270,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <button class="btn btn-white btn-sm" onclick="exportCSV()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
         Excel
+      </button>
+      <button class="btn btn-primary" id="btnNuovoOrdine" onclick="openOrdineForm()" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nuovo ordine
       </button>
       <button class="btn btn-primary" id="btnNuova" onclick="openForm()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -491,6 +502,128 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       </button>
     </div>
   </main>
+</div>
+
+<!-- ORDINI VIEW -->
+<div id="ordiniView" style="display:none;">
+  <main class="main">
+    <div style="margin-bottom:16px;">
+      <div class="card" style="overflow-x:auto;">
+        <div class="card-head">
+          <h2 id="ordiniTitle">Ordini</h2>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" id="ordiniSearch" placeholder="🔍 Cerca cliente o contratto..." oninput="renderOrdini()" style="padding:5px 10px;border:1px solid var(--border2);border-radius:var(--radius);font-size:12px;font-family:'DM Sans',sans-serif;width:220px;outline:none;">
+            <select id="ordiniFilterPagamento" onchange="renderOrdini()" style="padding:5px 10px;border:1px solid var(--border2);border-radius:var(--radius);font-size:12px;font-family:'DM Sans',sans-serif;outline:none;">
+              <option value="">Tutti i pagamenti</option>
+              <option>PAGATO</option>
+              <option>IN ATTESA</option>
+              <option>PARZIALE</option>
+            </select>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="tbl" id="ordiniTable" style="min-width:1200px;">
+            <thead>
+              <tr>
+                <th rowspan="2" style="width:80px;vertical-align:bottom;">DATA INVIO</th>
+                <th rowspan="2" style="width:90px;vertical-align:bottom;">N° CONTRATTO</th>
+                <th rowspan="2" style="vertical-align:bottom;">CLIENTE</th>
+                <th rowspan="2" style="vertical-align:bottom;">FORNITORE</th>
+                <th rowspan="2" style="width:90px;vertical-align:bottom;">N° ODA</th>
+                <th rowspan="2" style="width:60px;vertical-align:bottom;">RATA</th>
+                <th colspan="3" style="text-align:center;background:rgba(45,63,84,0.08);color:#2D3F54;border-bottom:2px solid #2D3F54;font-weight:600;">ORDINE</th>
+                <th colspan="6" style="text-align:center;background:rgba(26,107,42,0.08);color:var(--green);border-bottom:2px solid var(--green);font-weight:600;">RICHIESTA PAGAMENTO</th>
+                <th rowspan="2" style="width:110px;vertical-align:bottom;">CONSEGNA PREVISTA</th>
+                <th style="width:60px;"></th>
+              </tr>
+              <tr>
+                <th class="r" style="background:rgba(45,63,84,0.05);color:#2D3F54;">IMP.</th>
+                <th class="r" style="background:rgba(45,63,84,0.05);color:#2D3F54;">IVA 22%</th>
+                <th class="r" style="background:rgba(45,63,84,0.05);color:#2D3F54;">TOTALE</th>
+                <th class="r" style="background:rgba(26,107,42,0.05);color:var(--green);">% RICH.</th>
+                <th class="r" style="background:rgba(26,107,42,0.05);color:var(--green);">IMP.</th>
+                <th class="r" style="background:rgba(26,107,42,0.05);color:var(--green);">IVA 22%</th>
+                <th class="r" style="background:rgba(26,107,42,0.05);color:var(--green);">DA PAGARE</th>
+                <th style="background:rgba(26,107,42,0.05);color:var(--green);">PAGAMENTO</th>
+                <th style="background:rgba(26,107,42,0.05);color:var(--green);">ENTRO</th>
+              </tr>
+            </thead>
+            <tbody id="ordiniBody">
+              <tr><td colspan="15" style="text-align:center;padding:40px;color:var(--text3);">Nessun ordine</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- FORM ORDINE -->
+<div class="overlay" id="ordineFormOverlay" onclick="bgClose(event,'ordineFormOverlay')">
+  <div class="sheet" style="max-width:700px;">
+    <div class="sheet-head">
+      <h2 id="ordineFormTitle">Nuovo ordine</h2>
+      <button class="btn btn-ghost btn-sm" onclick="closeOrdineForm()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="sheet-body">
+      <!-- Sezione contratto e fornitore -->
+      <div class="grid5" style="grid-template-columns:1fr 1fr;">
+        <div class="fg"><label>DATA INVIO</label><input type="date" id="o_data"></div>
+        <div class="fg"><label>N° ODA</label><input type="text" id="o_oda" placeholder="Es. 545004591"></div>
+        <div class="fg"><label>N° CONTRATTO *</label>
+          <select id="o_contratto" onchange="onOrdineContrattoChange()" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;background:var(--surface);">
+            <option value="">— seleziona —</option>
+          </select>
+        </div>
+        <div class="fg"><label>CLIENTE</label><input type="text" id="o_cliente" style="background:var(--surface2);color:var(--text2);" readonly></div>
+        <div class="fg"><label>FORNITORE *</label>
+          <select id="o_fornitore" onchange="onOrdineFornitoreChange()" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;background:var(--surface);">
+            <option value="">— seleziona —</option>
+          </select>
+        </div>
+        <div class="fg"><label>IMPORTO ORDINE (€) *</label><input type="number" id="o_imp" step="0.01" placeholder="0,00" oninput="onImpChange()"></div>
+      </div>
+
+      <!-- Modalità pagamento -->
+      <div style="margin-top:12px;padding:14px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border);">
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.07em;margin-bottom:10px;">MODALITÀ PAGAMENTO *</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+          <button type="button" class="pay-mode-btn active" onclick="setPayMode('100')" id="pm_100">100% unica soluzione</button>
+          <button type="button" class="pay-mode-btn" onclick="setPayMode('30-70')" id="pm_30-70">30% + 70%</button>
+          <button type="button" class="pay-mode-btn" onclick="setPayMode('50-riba')" id="pm_50-riba">50% + 50% Riba 30gg data fattura fm</button>
+          <button type="button" class="pay-mode-btn" onclick="setPayMode('riba30-60')" id="pm_riba30-60">Riba 30-60gg</button>
+          <button type="button" class="pay-mode-btn" onclick="setPayMode('custom')" id="pm_custom">Personalizzato</button>
+        </div>
+        <!-- Rate dinamiche -->
+        <div id="rate_container"></div>
+      </div>
+
+      <!-- Consegna settimane -->
+      <div class="grid5" style="grid-template-columns:1fr auto 1fr auto 1fr;gap:8px;align-items:end;margin-top:12px;">
+        <div class="fg" style="margin:0;">
+          <label>SETT. DA</label>
+          <input type="number" id="o_sett_da" min="1" max="53" placeholder="Es. 27" oninput="calcConsegna()" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Mono',monospace;outline:none;">
+        </div>
+        <span style="color:var(--text3);padding-bottom:10px;">→</span>
+        <div class="fg" style="margin:0;">
+          <label>SETT. A</label>
+          <input type="number" id="o_sett_a" min="1" max="53" placeholder="Es. 29" oninput="calcConsegna()" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Mono',monospace;outline:none;">
+        </div>
+        <span style="color:var(--text3);padding-bottom:10px;">/</span>
+        <div class="fg" style="margin:0;">
+          <label>ANNO</label>
+          <input type="number" id="o_sett_anno" placeholder="2026" value="2026" oninput="calcConsegna()" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Mono',monospace;outline:none;">
+        </div>
+      </div>
+      <div id="o_consegna_preview" style="margin-top:6px;font-size:11px;color:var(--text3);font-style:italic;"></div>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn btn-ghost" onclick="closeOrdineForm()">Annulla</button>
+      <button class="btn btn-primary" onclick="saveOrdine()">Salva ordine</button>
+    </div>
+  </div>
 </div>
 <datalist id="fornitori-list">
   <option value="ALIAS"><option value="ALUX"><option value="CAMAIORA">
@@ -1174,6 +1307,27 @@ async function deleteCommessa(id){
 function closeDtl(){document.getElementById('dtlOverlay').classList.remove('open');}
 function bgClose(e,id){if(e.target.id===id)document.getElementById(id).classList.remove('open');}
 
+function toggleExpand(id, row){
+  const marker=document.getElementById(id);
+  if(!marker) return;
+  const cid=id.replace('exp-','');
+  const open=marker.style.display==='table-row';
+  // Toggle marker row
+  marker.style.display=open?'none':'table-row';
+  // Toggle all fornitore rows and totals (siblings until exp-end)
+  const endClass='exp-end-'+cid;
+  let el=marker.nextElementSibling;
+  while(el && !el.classList.contains(endClass)){
+    el.style.display=open?'none':'table-row';
+    el=el.nextElementSibling;
+  }
+  if(el) el.style.display=open?'none':'table-row';
+  // Arrow rotation
+  const arrow=document.getElementById('exp-arrow-'+cid);
+  if(arrow) arrow.style.transform=open?'':'rotate(90deg)';
+  row.style.background=open?'':'rgba(232,66,10,0.03)';
+}
+
 /* RENDER */
 function render(){
   const filtered=filterDB();
@@ -1205,10 +1359,51 @@ function render(){
     <tbody>${filtered.map(c=>{
       const ok=c.ric>=REF;
       const pill=c.vend_tot>0?`<span class="pill ${ok?'pill-g':'pill-r'}">${ok?'Positivo':'Negativo'}</span>`:`<span class="pill pill-n">—</span>`;
-      return`<tr>
+      // Aggrega fornitori
+      const fornMap={};
+      (c.prodotti||[]).forEach(p=>{
+        const k=(p.fornitore||'—').trim()||'—';
+        if(!fornMap[k]) fornMap[k]={vend:0,costo:0,marg:0};
+        fornMap[k].vend+=p.vend_tot||0;
+        fornMap[k].costo+=p.costo_tot||0;
+        fornMap[k].marg+=p.marg||0;
+      });
+      const fornEntries=Object.entries(fornMap).sort((a,b)=>b[1].vend-a[1].vend);
+      const fornRows=fornEntries.map(([k,v])=>{
+        const r=v.costo>0?(v.vend-v.costo)/v.costo:0;
+        return `<tr style="display:none;background:var(--surface2);">
+          <td></td>
+          <td style="padding:5px 9px;font-size:11px;color:var(--text2);padding-left:24px;">
+            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--orange);margin-right:6px;opacity:.5;vertical-align:middle;"></span>${k}</td>
+          <td></td><td></td><td></td><td></td>
+          <td class="r" style="padding:5px 9px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text2);">${euro(v.vend)}</td>
+          <td class="r" style="padding:5px 9px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);">${euro(v.costo)}</td>
+          <td class="r" style="padding:5px 9px;font-size:11px;font-family:'DM Mono',monospace;color:${v.marg>=0?'var(--green)':'var(--red)'};">${euro(v.marg)}</td>
+          <td class="r" style="padding:5px 9px;font-size:11px;font-family:'DM Mono',monospace;color:${r>=REF?'var(--green)':'var(--red)'};">${ric(r)}</td>
+          <td></td><td></td><td></td>
+        </tr>`;
+      }).join('');
+      // Riga totali
+      const totVend=fornEntries.reduce((s,[,v])=>s+v.vend,0);
+      const totCosto=fornEntries.reduce((s,[,v])=>s+v.costo,0);
+      const totMarg=fornEntries.reduce((s,[,v])=>s+v.marg,0);
+      const totRic=totCosto>0?(totVend-totCosto)/totCosto:0;
+      const totRow=fornEntries.length>1?`<tr style="display:none;background:var(--surface2);border-top:1px solid var(--border);">
+        <td></td>
+        <td style="padding:5px 9px;font-size:11px;font-weight:600;color:var(--text3);padding-left:24px;">TOTALE PRODOTTI</td>
+        <td></td><td></td><td></td><td></td>
+        <td class="r" style="padding:5px 9px;font-size:11px;font-family:'DM Mono',monospace;font-weight:600;">${euro(totVend)}</td>
+        <td class="r" style="padding:5px 9px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);font-weight:600;">${euro(totCosto)}</td>
+        <td class="r" style="padding:5px 9px;font-size:11px;font-family:'DM Mono',monospace;font-weight:600;color:${totMarg>=0?'var(--green)':'var(--red)'};">${euro(totMarg)}</td>
+        <td class="r" style="padding:5px 9px;font-size:11px;font-family:'DM Mono',monospace;font-weight:600;color:${totRic>=REF?'var(--green)':'var(--red)'};">${ric(totRic)}</td>
+        <td></td><td></td><td></td>
+      </tr>`:'';
+      const hasForn=fornEntries.length>0;
+      return`<tr class="tbl-main-row" onclick="toggleExpand('exp-${c.id}',this)" style="cursor:${hasForn?'pointer':'default'};">
         <td class="muted" style="font-size:11px;white-space:nowrap;">${c.num_contratto||'—'}</td>
-        <td class="bold" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;" title="${c.cliente}">${c.cliente}${c.annulla?` <span style="font-size:10px;background:var(--orange-bg);color:var(--orange-dk);padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;" title="Annulla e sostituisce">↺${Array.isArray(c.annulla_data)?c.annulla_data.filter(Boolean).length:(c.annulla_data?1:0)}</span>`:''}
-      </td>
+        <td class="bold" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;" title="${c.cliente}">
+          ${hasForn?`<svg id="exp-arrow-${c.id}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:10px;height:10px;margin-right:4px;transition:transform .2s;vertical-align:middle;color:var(--text3);"><polyline points="9,6 15,12 9,18"/></svg>`:''}${c.cliente}${c.annulla?` <span style="font-size:10px;background:var(--orange-bg);color:var(--orange-dk);padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;" title="Annulla e sostituisce">↺${Array.isArray(c.annulla_data)?c.annulla_data.filter(Boolean).length:(c.annulla_data?1:0)}</span>`:''}
+        </td>
         <td class="muted">${df(c.data)}</td>
         <td class="muted">${c.sede||'—'}</td>
         <td class="muted">${c.consulente||'—'}</td>
@@ -1220,9 +1415,9 @@ function render(){
         <td class="r mono" style="font-weight:500;color:${ok?'var(--green)':'var(--red)'}">${ric(c.ric)}</td>
         <td>${pill}</td>
         <td style="text-align:center;">
-          <span class="stato-pill stato-${(c.stato||'Contratto').replace(/ /g,'-')}" onclick="cycleStato('${c.id}',this)" title="${c.stato||'Contratto'} — clicca per cambiare"></span>
+          <span class="stato-pill stato-${(c.stato||'Contratto').replace(/ /g,'-')}" onclick="event.stopPropagation();cycleStato('${c.id}',this)" title="${c.stato||'Contratto'} — clicca per cambiare"></span>
         </td>
-        <td style="text-align:right;">
+        <td style="text-align:right;" onclick="event.stopPropagation()">
           <button class="btn btn-ghost btn-sm" onclick="openDtl('${c.id}')" title="Dettaglio" style="margin-right:2px;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
@@ -1230,7 +1425,10 @@ function render(){
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
         </td>
-      </tr>`;
+      </tr>
+      <tr id="exp-${c.id}" style="display:none;"><td colspan="13" style="padding:0;border-bottom:2px solid var(--border2);"></td></tr>
+      ${fornRows}${totRow}
+      <tr class="exp-end-${c.id}" style="display:none;"><td colspan="13" style="padding:0;border-bottom:2px solid var(--border2);"></td></tr>`;
     }).join('')}</tbody>
   </table>`;
   updateMetrics(filtered);
@@ -1573,17 +1771,362 @@ function exportCSV(){
   showToast('Export scaricato');
 }
 
-/* ── VIEW SWITCHING ── */
+/* ── ORDINI ── */
+let ORDINI_DB=[];
+let ordineEditId=null;
+
+async function loadOrdini(){
+  try{
+    const rows=await sbFetch('ordini?select=*&order=created_at.desc');
+    ORDINI_DB=(rows||[]).map(r=>r.data);
+    renderOrdini();
+  }catch(e){console.error('Errore caricamento ordini',e);}
+}
+
+function renderOrdini(){
+  const search=(document.getElementById('ordiniSearch')?.value||'').toLowerCase();
+  const filtPag=document.getElementById('ordiniFilterPagamento')?.value||'';
+  let data=[...ORDINI_DB];
+  if(search) data=data.filter(o=>(o.cliente||'').toLowerCase().includes(search)||(o.contratto||'').toLowerCase().includes(search)||(o.fornitore||'').toLowerCase().includes(search));
+  if(filtPag) data=data.filter(o=>(o.pagamento||'')=== filtPag);
+  data.sort((a,b)=>(b.data_invio||'').localeCompare(a.data_invio||''));
+  document.getElementById('ordiniTitle').textContent=`Ordini (${data.length})`;
+  const IVA=0.22;
+  document.getElementById('ordiniBody').innerHTML=data.length?data.map(o=>{
+    const imp=o.imp||0, pct=o.pct||0;
+    const iva=Math.round(imp*IVA*100)/100;
+    const tot=Math.round((imp+iva)*100)/100;
+    const imp_pag=Math.round(imp*pct/100*100)/100;
+    const iva_pag=Math.round(imp_pag*IVA*100)/100;
+    const da_pag=Math.round((imp_pag+iva_pag)*100)/100;
+    const pagColor=o.pagamento==='PAGATO'?'var(--green)':o.pagamento==='PARZIALE'?'var(--orange)':'var(--text3)';
+    // Calcola consegna
+    let consegnaStr='—';
+    if(o.sett_da){
+      const anno=o.sett_anno||new Date().getFullYear();
+      const lunDa=settDate(o.sett_da,anno,true);
+      const venA=settDate(o.sett_a||o.sett_da,anno,false);
+      const settStr=o.sett_a&&o.sett_a!==o.sett_da?`Sett. ${o.sett_da}–${o.sett_a}`:`Sett. ${o.sett_da}`;
+      consegnaStr=`<span style="font-size:10px;font-weight:600;display:block;">${settStr}</span><span style="font-size:10px;color:var(--text3);">${fmtDate(lunDa)} – ${fmtDate(venA)}</span>`;
+    }
+    return`<tr>
+      <td style="font-size:11px;">${o.data_invio?df(o.data_invio):'—'}</td>
+      <td style="font-size:11px;font-weight:500;">${o.contratto||'—'}</td>
+      <td class="bold" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;">${o.cliente||'—'}</td>
+      <td style="font-size:12px;">${o.fornitore||'—'}</td>
+      <td style="font-size:11px;font-family:'DM Mono',monospace;">${o.oda||'—'}</td>
+      <td style="font-size:11px;text-align:center;"><span style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;">${o.rata||'Unica'}</span></td>
+      <td class="r mono" style="background:rgba(45,63,84,0.04);">${euro(imp)}</td>
+      <td class="r mono" style="background:rgba(45,63,84,0.04);color:var(--text3);">${euro(iva)}</td>
+      <td class="r mono" style="background:rgba(45,63,84,0.04);font-weight:600;">${euro(tot)}</td>
+      <td class="r mono" style="background:rgba(26,107,42,0.04);">${pct}%</td>
+      <td class="r mono" style="background:rgba(26,107,42,0.04);">${euro(imp_pag)}</td>
+      <td class="r mono" style="background:rgba(26,107,42,0.04);color:var(--text3);">${euro(iva_pag)}</td>
+      <td class="r mono" style="background:rgba(26,107,42,0.04);font-weight:600;color:var(--green);">${euro(da_pag)}</td>
+      <td style="background:rgba(26,107,42,0.04);">
+        <span style="font-size:11px;font-weight:600;color:${pagColor};display:block;">${o.pagamento||'—'}</span>
+        ${o.tipo_pag?`<span style="font-size:10px;color:var(--text3);display:block;">${o.tipo_pag}</span>`:''}
+      </td>
+      <td style="background:rgba(26,107,42,0.04);font-size:11px;color:var(--text2);">${o.data_scadenza?df(o.data_scadenza):'—'}</td>
+      <td style="font-size:11px;">${consegnaStr}</td>
+      <td style="text-align:right;white-space:nowrap;">
+        <button class="btn btn-ghost btn-sm" onclick="editOrdine('${o.id}')" title="Modifica" style="margin-right:2px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="deleteOrdine('${o.id}')" title="Elimina" style="color:var(--red);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><polyline points="3,6 5,6 21,6"/><path d="M19,6l-1,14H6L5,6"/><path d="M9,6V4h6v2"/></svg>
+        </button>
+      </td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="15" style="text-align:center;padding:40px;color:var(--text3);">Nessun ordine trovato</td></tr>`;
+}
+
+function openOrdineForm(id){
+  ordineEditId=id||null;
+  document.getElementById('ordineFormTitle').textContent=id?'Modifica ordine':'Nuovo ordine';
+  // Popola select contratti
+  const sel=document.getElementById('o_contratto');
+  sel.innerHTML='<option value="">— seleziona —</option>'+DB.map(c=>`<option value="${c.id}">${c.num_contratto?c.num_contratto+' — ':''}${c.cliente}</option>`).join('');
+  // Popola select fornitori
+  const fsel=document.getElementById('o_fornitore');
+  fsel.innerHTML='<option value="">— seleziona —</option>'+Object.keys(FORNITORI).map(f=>`<option>${f}</option>`).join('');
+  // Reset o carica valori esistenti
+  const o=id?ORDINI_DB.find(x=>x.id===id):null;
+  document.getElementById('o_data').value=o?.data_invio||'';
+  document.getElementById('o_oda').value=o?.oda||'';
+  document.getElementById('o_contratto').value=o?.commessa_id||'';
+  document.getElementById('o_cliente').value=o?.cliente||'';
+  document.getElementById('o_fornitore').value=o?.fornitore||'';
+  document.getElementById('o_imp').value=o?.imp||'';
+  document.getElementById('o_sett_da').value=o?.sett_da||'';
+  document.getElementById('o_sett_a').value=o?.sett_a||'';
+  document.getElementById('o_sett_anno').value=o?.sett_anno||new Date().getFullYear();
+  // Init modalità pagamento
+  const modo=o?.pay_mode||'100';
+  currentPayMode=modo;
+  document.querySelectorAll('.pay-mode-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('pm_'+modo)?.classList.add('active');
+  calcOrdine();
+  calcConsegna();
+  // Render rate dopo breve delay (DOM aggiornato)
+  setTimeout(()=>{
+    renderRate();
+    // Ripristina valori rate se in modifica
+    if(o?.rate){
+      o.rate.forEach((r,i)=>{
+        const n=i+1;
+        if(document.getElementById('r'+n+'_pct')) document.getElementById('r'+n+'_pct').value=r.pct||'';
+        if(document.getElementById('r'+n+'_tipo')) document.getElementById('r'+n+'_tipo').value=r.tipo||'';
+        if(document.getElementById('r'+n+'_stato')) document.getElementById('r'+n+'_stato').value=r.stato||'';
+        if(document.getElementById('r'+n+'_scad')) document.getElementById('r'+n+'_scad').value=r.data_scadenza||'';
+      });
+    }
+  },50);
+  document.getElementById('ordineFormOverlay').classList.add('open');
+}
+
+function closeOrdineForm(){
+  document.getElementById('ordineFormOverlay').classList.remove('open');
+}
+
+function onOrdineContrattoChange(){
+  const id=document.getElementById('o_contratto').value;
+  const c=DB.find(x=>x.id===id);
+  document.getElementById('o_cliente').value=c?.cliente||'';
+
+  // Aggrega vendite per fornitore dalla commessa
+  const fornVend={};
+  (c?.prodotti||[]).forEach(p=>{
+    const k=(p.fornitore||'').trim();
+    if(!k) return;
+    if(!fornVend[k]) fornVend[k]=0;
+    fornVend[k]+=p.vend_tot||0;
+  });
+
+  const fsel=document.getElementById('o_fornitore');
+  // Prima i fornitori della commessa con importo suggerito, poi tutti gli altri
+  const fornCommessa=Object.entries(fornVend).sort((a,b)=>b[1]-a[1]);
+  const altriForni=Object.keys(FORNITORI).filter(f=>!fornVend[f]);
+
+  fsel.innerHTML='<option value="">— seleziona fornitore —</option>'
+    +(fornCommessa.length?fornCommessa.map(([f,v])=>`<option value="${f}" data-imp="${v}">${f} — suggerito €${Math.round(v).toLocaleString('it-IT')}</option>`).join(''):'')
+    +(altriForni.length?`<option disabled>──────────</option>`+altriForni.map(f=>`<option value="${f}">${f}</option>`).join(''):'');
+
+  // Reset importo
+  document.getElementById('o_imp').value='';
+  renderRate();
+}
+
+function onOrdineFornitoreChange(){
+  const fsel=document.getElementById('o_fornitore');
+  const opt=fsel.options[fsel.selectedIndex];
+  const imp=opt?.dataset?.imp;
+  if(imp){
+    document.getElementById('o_imp').value=parseFloat(imp).toFixed(2);
+    renderRate();
+  }
+}
+
+let currentPayMode='100';
+const TIPI_PAG=['Bonifico','Riba 30gg','Riba 30gg data fattura fm','Riba 60gg'];
+
+function tipoPagSelect(id,val=''){
+  return `<select id="${id}" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;background:var(--surface);">
+    <option value="">— tipo —</option>
+    ${TIPI_PAG.map(t=>`<option ${t===val?'selected':''}>${t}</option>`).join('')}
+  </select>`;
+}
+
+function statoSelect(id,val=''){
+  return `<select id="${id}" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;background:var(--surface);">
+    <option value="">— stato —</option>
+    <option ${val==='PAGATO'?'selected':''}>PAGATO</option>
+    <option ${val==='IN ATTESA'?'selected':''}>IN ATTESA</option>
+    <option ${val==='PARZIALE'?'selected':''}>PARZIALE</option>
+  </select>`;
+}
+
+function rataRow(n, pct, tipoDefault, rataLabel, vals={}){
+  const imp=parseFloat(document.getElementById('o_imp')?.value)||0;
+  const impRata=imp?Math.round(imp*pct/100*100)/100:0;
+  const ivaRata=Math.round(impRata*0.22*100)/100;
+  const totRata=Math.round((impRata+ivaRata)*100)/100;
+  return `<div class="rata-row">
+    <div><label>RATA</label><span style="font-size:13px;font-weight:700;color:var(--orange-dk);">${rataLabel}</span></div>
+    <div><label>%</label><input type="number" id="r${n}_pct" value="${pct}" min="1" max="100" oninput="onRataPctChange()" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Mono',monospace;outline:none;"></div>
+    <div><label>TIPO PAGAMENTO</label>${tipoPagSelect('r'+n+'_tipo', vals.tipo||tipoDefault)}</div>
+    <div><label>STATO</label>${statoSelect('r'+n+'_stato', vals.stato||'')}</div>
+    <div><label>DA PAGARE ENTRO IL</label><input type="date" id="r${n}_scad" value="${vals.scad||''}" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;outline:none;"></div>
+  </div>
+  <div style="font-size:11px;color:var(--text3);padding:3px 0 8px;font-family:'DM Mono',monospace;" id="r${n}_preview">${imp?`→ ${euro(impRata)} + IVA ${euro(ivaRata)} = <strong>${euro(totRata)}</strong>`:''}</div>`;
+}
+
+function setPayMode(mode){
+  currentPayMode=mode;
+  document.querySelectorAll('.pay-mode-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('pm_'+mode)?.classList.add('active');
+  renderRate();
+}
+
+function onImpChange(){renderRate();}
+function onRataPctChange(){renderRate(true);}
+
+function renderRate(keepVals=false){
+  const container=document.getElementById('rate_container');
+  const imp=parseFloat(document.getElementById('o_imp')?.value)||0;
+  const getV=(id)=>keepVals?document.getElementById(id)?.value||'':'';
+
+  if(currentPayMode==='100'){
+    container.innerHTML=rataRow(1,100,'Bonifico','1/1',{tipo:getV('r1_tipo'),stato:getV('r1_stato'),scad:getV('r1_scad')});
+  } else if(currentPayMode==='30-70'){
+    container.innerHTML=
+      rataRow(1,30,'Bonifico','1a rata (30%)',{tipo:getV('r1_tipo'),stato:getV('r1_stato'),scad:getV('r1_scad')})+
+      rataRow(2,70,'Bonifico','2a rata (70%)',{tipo:getV('r2_tipo'),stato:getV('r2_stato'),scad:getV('r2_scad')});
+  } else if(currentPayMode==='50-riba'){
+    container.innerHTML=
+      rataRow(1,50,'Bonifico','1a rata (50%)',{tipo:getV('r1_tipo'),stato:getV('r1_stato'),scad:getV('r1_scad')})+
+      rataRow(2,50,'Riba 30gg data fattura fm','2a rata (50% Riba 30gg data fattura fm)',{tipo:getV('r2_tipo'),stato:getV('r2_stato'),scad:getV('r2_scad')});
+  } else if(currentPayMode==='riba30-60'){
+    container.innerHTML=
+      rataRow(1,50,'Riba 30gg','1a rata (50% Riba 30gg)',{tipo:getV('r1_tipo'),stato:getV('r1_stato'),scad:getV('r1_scad')})+
+      rataRow(2,50,'Riba 60gg','2a rata (50% Riba 60gg)',{tipo:getV('r2_tipo'),stato:getV('r2_stato'),scad:getV('r2_scad')});
+  } else if(currentPayMode==='custom'){
+    const n=parseInt(document.getElementById('custom_n')?.value)||2;
+    let html=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span style="font-size:12px;color:var(--text2);">Numero rate:</span>
+      <select id="custom_n" onchange="renderRate()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;outline:none;">
+        ${[2,3].map(v=>`<option ${v===n?'selected':''}>${v}</option>`).join('')}
+      </select>
+    </div>`;
+    const labels=['1a rata','2a rata','3a rata'];
+    for(let i=1;i<=n;i++){
+      const pct=keepVals?parseInt(document.getElementById('r'+i+'_pct')?.value)||Math.round(100/n):Math.round(100/n);
+      html+=rataRow(i,pct,'Bonifico',labels[i-1],{tipo:getV('r'+i+'_tipo'),stato:getV('r'+i+'_stato'),scad:getV('r'+i+'_scad')});
+    }
+    container.innerHTML=html;
+  }
+}
+
+function getRateFromForm(){
+  const imp=parseFloat(document.getElementById('o_imp')?.value)||0;
+  const rate=[];
+  const IVA=0.22;
+  for(let i=1;i<=3;i++){
+    const pctEl=document.getElementById('r'+i+'_pct');
+    if(!pctEl) break;
+    const pct=parseFloat(pctEl.value)||0;
+    const tipo=document.getElementById('r'+i+'_tipo')?.value||'';
+    const stato=document.getElementById('r'+i+'_stato')?.value||'';
+    const scad=document.getElementById('r'+i+'_scad')?.value||'';
+    const imp_r=Math.round(imp*pct/100*100)/100;
+    rate.push({n:i,pct,tipo,stato,data_scadenza:scad,imp_r,iva_r:Math.round(imp_r*IVA*100)/100,tot_r:Math.round(imp_r*(1+IVA)*100)/100});
+  }
+  return rate;
+}
+
+function settDate(sett, anno, startOfWeek){
+  // Ritorna lun o ven della settimana ISO lavorativa
+  const jan4 = new Date(anno, 0, 4); // 4 gen è sempre nella settimana 1
+  const startW1 = new Date(jan4);
+  startW1.setDate(jan4.getDate() - ((jan4.getDay()+6)%7)); // lunedì settimana 1
+  const d = new Date(startW1);
+  d.setDate(startW1.getDate() + (sett-1)*7 + (startOfWeek?0:4));
+  return d;
+}
+
+function fmtDate(d){
+  return d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+
+function calcConsegna(){
+  const da=parseInt(document.getElementById('o_sett_da').value)||0;
+  const a=parseInt(document.getElementById('o_sett_a').value)||0;
+  const anno=parseInt(document.getElementById('o_sett_anno').value)||new Date().getFullYear();
+  const prev=document.getElementById('o_consegna_preview');
+  if(!da){prev.textContent='';return;}
+  const lunDa=settDate(da,anno,true);
+  const venA=a?settDate(a,anno,false):settDate(da,anno,false);
+  const settStr=a&&a!==da?`Sett. ${da}–${a}/${anno}`:`Sett. ${da}/${anno}`;
+  prev.textContent=`📅 ${settStr} · dal ${fmtDate(lunDa)} al ${fmtDate(venA)}`;
+}
+
+function calcOrdine(){
+  // Non più usata direttamente, la logica è in renderRate
+  renderRate(true);
+}
+
+async function saveOrdine(){
+  const contratto_id=document.getElementById('o_contratto').value;
+  const imp=parseFloat(document.getElementById('o_imp').value)||0;
+  if(!contratto_id||!imp){showToast('Compila i campi obbligatori',true);return;}
+  const c=DB.find(x=>x.id===contratto_id);
+  const rate=getRateFromForm();
+  if(!rate.length){showToast('Aggiungi almeno una rata',true);return;}
+  const baseId=ordineEditId||Date.now().toString();
+  const sett_da=parseInt(document.getElementById('o_sett_da').value)||null;
+  const sett_a=parseInt(document.getElementById('o_sett_a').value)||null;
+  const sett_anno=parseInt(document.getElementById('o_sett_anno').value)||new Date().getFullYear();
+  const baseObj={
+    commessa_id:contratto_id,
+    contratto:c?.num_contratto||'',
+    cliente:c?.cliente||document.getElementById('o_cliente').value,
+    fornitore:document.getElementById('o_fornitore').value,
+    oda:document.getElementById('o_oda').value,
+    data_invio:document.getElementById('o_data').value,
+    imp, pay_mode:currentPayMode, rate,
+    sett_da, sett_a, sett_anno,
+    creato:ordineEditId?(ORDINI_DB.find(x=>x.id===baseId)?.creato||new Date().toISOString()):new Date().toISOString(),
+  };
+  // Crea un oggetto per rata (con suffisso _r1, _r2 se più rate)
+  const toSave=rate.map((r,i)=>({
+    ...baseObj,
+    id: rate.length===1?baseId:`${baseId}_r${i+1}`,
+    rata:rate.length===1?'Unica':`${i+1}a`,
+    pct:r.pct,
+    tipo_pag:r.tipo,
+    pagamento:r.stato,
+    data_scadenza:r.data_scadenza,
+  }));
+  try{
+    // Rimuovi vecchi se modifica
+    if(ordineEditId){
+      const oldIds=ORDINI_DB.filter(x=>x.id===baseId||x.id?.startsWith(baseId+'_r')).map(x=>x.id);
+      for(const oid of oldIds){
+        await sbFetch('ordini?id=eq.'+oid,{method:'DELETE',headers:{'Prefer':'return=minimal'}});
+      }
+      ORDINI_DB=ORDINI_DB.filter(x=>x.id!==baseId&&!x.id?.startsWith(baseId+'_r'));
+    }
+    for(const obj of toSave){
+      await sbFetch('ordini',{method:'POST',body:JSON.stringify({id:obj.id,data:obj}),headers:{'Prefer':'resolution=merge-duplicates'}});
+      ORDINI_DB.unshift(obj);
+    }
+    renderOrdini();
+    closeOrdineForm();
+    showToast(ordineEditId?'Ordine aggiornato':`${toSave.length} rig${toSave.length===1?'a':'he'} salvate`);
+  }catch(e){showToast('Errore salvataggio',true);console.error(e);}
+}
+
+function editOrdine(id){openOrdineForm(id);}
+
+async function deleteOrdine(id){
+  if(!confirm('Eliminare questo ordine?'))return;
+  try{
+    await sbFetch('ordini?id=eq.'+id,{method:'DELETE',headers:{'Prefer':'return=minimal'}});
+    ORDINI_DB=ORDINI_DB.filter(x=>x.id!==id);
+    renderOrdini();
+    showToast('Ordine eliminato');
+  }catch(e){showToast('Errore eliminazione',true);}
+}
+
+/* ── FINE ORDINI ── */
 let chartFatturato=null, chartRicarico=null;
 let pannelloUnlocked=false;
 
 function showView(view, btn){
   if(view==='pannello'&&!pannelloUnlocked){
-    // Mostra PIN overlay pannello invece di cambiare view
     document.getElementById('pannelloPinInput').value='';
     document.getElementById('pannelloPinError').textContent='';
     document.getElementById('pannelloPinOverlay').classList.add('open');
-    // Non cambiare il tab attivo
     return;
   }
   document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
@@ -1591,9 +2134,12 @@ function showView(view, btn){
   document.querySelector('.main').style.display = view==='commesse'?'':'none';
   document.getElementById('reportView').style.display = view==='report'?'block':'none';
   document.getElementById('pannelloView').style.display = view==='pannello'?'block':'none';
+  document.getElementById('ordiniView').style.display = view==='ordini'?'block':'none';
   document.getElementById('btnNuova').style.display = view==='commesse'?'':'none';
+  document.getElementById('btnNuovoOrdine').style.display = view==='ordini'?'':'none';
   if(view==='report') renderReport();
   if(view==='pannello') renderPannello();
+  if(view==='ordini') loadOrdini();
 }
 
 async function loadChartJS(){
