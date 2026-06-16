@@ -267,10 +267,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="topbar-right">
       <span class="topbar-badge"><span class="sync-dot" id="syncDot"></span><span id="syncStatus">Connessione...</span></span>
       <div class="topbar-badge" id="topBadge">— commesse</div>
-      <button class="btn btn-white btn-sm" onclick="exportCSV()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
-        Excel
-      </button>
       <button class="btn btn-primary" id="btnNuovoOrdine" onclick="openOrdineForm()" style="display:none;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Nuovo ordine
@@ -336,6 +332,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
             <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:9px;height:9px;border-radius:50%;background:#F59E0B;display:inline-block;"></span>Ordine inviato</span>
             <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:9px;height:9px;border-radius:50%;background:#22C55E;display:inline-block;"></span>Chiusa</span>
           </div>
+          <button class="btn btn-white btn-sm" onclick="exportCSV()" style="background:var(--surface2);color:var(--text2);border-color:var(--border2);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+            Excel
+          </button>
           <button class="btn btn-sm btn-ghost" onclick="loadData()" title="Aggiorna">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 .49-3.42"/></svg>
           </button>
@@ -512,6 +512,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         <div class="card-head">
           <h2 id="ordiniTitle">Ordini</h2>
           <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-primary btn-sm" onclick="exportOrdiniXLSX()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+              Excel
+            </button>
             <input type="text" id="ordiniSearch" placeholder="🔍 Cerca cliente o contratto..." oninput="renderOrdini()" style="padding:5px 10px;border:1px solid var(--border2);border-radius:var(--radius);font-size:12px;font-family:'DM Sans',sans-serif;width:220px;outline:none;">
             <select id="ordiniFilterPagamento" onchange="renderOrdini()" style="padding:5px 10px;border:1px solid var(--border2);border-radius:var(--radius);font-size:12px;font-family:'DM Sans',sans-serif;outline:none;">
               <option value="">Tutti i pagamenti</option>
@@ -1771,6 +1775,14 @@ function exportCSV(){
   showToast('Export scaricato');
 }
 
+function loadScript(src){
+  return new Promise((res,rej)=>{
+    if(document.querySelector('script[src="'+src+'"]')){res();return;}
+    const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;
+    document.head.appendChild(s);
+  });
+}
+
 /* ── ORDINI ── */
 let ORDINI_DB=[];
 let ordineEditId=null;
@@ -1824,7 +1836,7 @@ function renderOrdini(){
       <td class="r mono" style="background:rgba(26,107,42,0.04);color:var(--text3);">${euro(iva_pag)}</td>
       <td class="r mono" style="background:rgba(26,107,42,0.04);font-weight:600;color:var(--green);">${euro(da_pag)}</td>
       <td style="background:rgba(26,107,42,0.04);">
-        <span style="font-size:11px;font-weight:600;color:${pagColor};display:block;">${o.pagamento||'—'}</span>
+        <span onclick="cycleOrdinePagamento('${o.id}',this)" style="font-size:11px;font-weight:600;color:${pagColor};display:block;cursor:pointer;user-select:none;" title="Clicca per cambiare stato">${o.pagamento||'IN ATTESA'}</span>
         ${o.tipo_pag?`<span style="font-size:10px;color:var(--text3);display:block;">${o.tipo_pag}</span>`:''}
       </td>
       <td style="background:rgba(26,107,42,0.04);font-size:11px;color:var(--text2);">${o.data_scadenza?df(o.data_scadenza):'—'}</td>
@@ -1894,13 +1906,13 @@ function onOrdineContrattoChange(){
   const c=DB.find(x=>x.id===id);
   document.getElementById('o_cliente').value=c?.cliente||'';
 
-  // Aggrega vendite per fornitore dalla commessa
+  // Aggrega costi per fornitore dalla commessa (consuntivo se presente, altrimenti stimato)
   const fornVend={};
   (c?.prodotti||[]).forEach(p=>{
     const k=(p.fornitore||'').trim();
     if(!k) return;
     if(!fornVend[k]) fornVend[k]=0;
-    fornVend[k]+=p.vend_tot||0;
+    fornVend[k]+=p.cons||p.costo_tot||0;
   });
 
   const fsel=document.getElementById('o_fornitore');
@@ -2116,6 +2128,114 @@ async function deleteOrdine(id){
     renderOrdini();
     showToast('Ordine eliminato');
   }catch(e){showToast('Errore eliminazione',true);}
+}
+
+const STATI_PAG=['IN ATTESA','PAGATO','PARZIALE'];
+async function cycleOrdinePagamento(id, el){
+  const o=ORDINI_DB.find(x=>x.id===id); if(!o) return;
+  const cur=o.pagamento||'IN ATTESA';
+  const next=STATI_PAG[(STATI_PAG.indexOf(cur)+1)%STATI_PAG.length];
+  o.pagamento=next;
+  const col=next==='PAGATO'?'var(--green)':next==='PARZIALE'?'var(--orange)':'var(--text3)';
+  el.textContent=next; el.style.color=col;
+  try{
+    await sbFetch('ordini?id=eq.'+id,{method:'PATCH',body:JSON.stringify({data:o}),headers:{'Prefer':'return=minimal'}});
+  }catch(e){showToast('Errore salvataggio',true);}
+}
+
+function exportOrdiniXLSX(){
+  const search=(document.getElementById('ordiniSearch')?.value||'').toLowerCase();
+  const filtPag=document.getElementById('ordiniFilterPagamento')?.value||'';
+  let data=[...ORDINI_DB];
+  if(search) data=data.filter(o=>(o.cliente||'').toLowerCase().includes(search)||(o.contratto||'').toLowerCase().includes(search)||(o.fornitore||'').toLowerCase().includes(search));
+  if(filtPag) data=data.filter(o=>(o.pagamento||'')=== filtPag);
+  data.sort((a,b)=>(b.data_invio||'').localeCompare(a.data_invio||''));
+  if(!data.length){showToast('Nessun dato da esportare',true);return;}
+
+  const IVA=0.22;
+  const fD=d=>{if(!d)return'';const[y,m,g]=d.split('-');return`${g}/${m}/${y}`;};
+
+  const headers=['DATA INVIO','N° CONTRATTO','CLIENTE','FORNITORE','N° ODA','RATA',
+    'IMP. ORDINE','IVA 22%','TOTALE ORDINE','% RICH.',
+    'IMP. DA PAGARE','IVA 22% PAG.','TOTALE DA PAGARE',
+    'TIPO PAGAMENTO','STATO PAGAMENTO','DA PAGARE ENTRO','CONSEGNA DAL','CONSEGNA AL'];
+
+  const rows=data.map(o=>{
+    const imp=o.imp||0,pct=o.pct||0;
+    const iva=Math.round(imp*IVA*100)/100;
+    const tot=Math.round((imp+iva)*100)/100;
+    const imp_pag=Math.round(imp*pct/100*100)/100;
+    const iva_pag=Math.round(imp_pag*IVA*100)/100;
+    const da_pag=Math.round((imp_pag+iva_pag)*100)/100;
+    let dal='',al='';
+    if(o.sett_da){const anno=o.sett_anno||new Date().getFullYear();dal=fmtDate(settDate(o.sett_da,anno,true));al=fmtDate(settDate(o.sett_a||o.sett_da,anno,false));}
+    return[fD(o.data_invio),o.contratto||'',o.cliente||'',o.fornitore||'',o.oda||'',o.rata||'Unica',
+      imp,iva,tot,pct,imp_pag,iva_pag,da_pag,
+      o.tipo_pag||'',o.pagamento||'',fD(o.data_scadenza),dal,al];
+  });
+
+  // Genera XML per xlsx (SpreadsheetML)
+  const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const cell=(v,ri,ci)=>{
+    const col=String.fromCharCode(65+ci);
+    const ref=`${col}${ri}`;
+    if(typeof v==='number') return`<c r="${ref}"><v>${v}</v></c>`;
+    return`<c r="${ref}" t="inlineStr"><is><t>${esc(v)}</t></is></c>`;
+  };
+  const allRows=[headers,...rows];
+  const sheetXml=`<?xml version="1.0" encoding="UTF-8"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<sheetData>
+${allRows.map((row,ri)=>`<row r="${ri+1}">${row.map((v,ci)=>cell(v,ri+1,ci)).join('')}</row>`).join('\n')}
+</sheetData></worksheet>`;
+
+  const wb=`<?xml version="1.0" encoding="UTF-8"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheets><sheet name="Ordini" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+
+  const rels=`<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>`;
+
+  const contentTypes=`<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+</Types>`;
+
+  const pkgRels=`<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+
+  // Zip usando JSZip-like approach con Blob
+  // Usiamo un approccio semplice: creiamo il file come zip manualmente
+  loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js').then(async()=>{
+    const zip=new JSZip();
+    zip.file('[Content_Types].xml',contentTypes);
+    zip.file('_rels/.rels',pkgRels);
+    zip.file('xl/workbook.xml',wb);
+    zip.file('xl/_rels/workbook.xml.rels',rels);
+    zip.file('xl/worksheets/sheet1.xml',sheetXml);
+    const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='Ordini_Leta_'+new Date().toISOString().slice(0,10)+'.xlsx';
+    a.click();
+    showToast('Excel scaricato');
+  }).catch(()=>{
+    // Fallback a CSV se tutto fallisce
+    showToast('Scarico in formato CSV...');
+    const csv=[headers,...rows].map(r=>r.map(x=>'"'+String(x??'').replace(/"/g,'""')+'"').join(',')).join('\n');
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
+    a.download='Ordini_Leta_'+new Date().toISOString().slice(0,10)+'.csv';
+    a.click();
+  });
 }
 
 /* ── FINE ORDINI ── */
