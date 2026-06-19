@@ -506,7 +506,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <!-- ORDINI VIEW -->
 <div id="ordiniView" style="display:none;">
-  <main class="main">
+  <main class="main" style="max-width:100%!important;">
     <div style="margin-bottom:16px;">
       <div class="card" style="overflow-x:auto;">
         <div class="card-head">
@@ -526,30 +526,30 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           </div>
         </div>
         <div style="overflow-x:auto;">
-          <table class="tbl" id="ordiniTable" style="min-width:1200px;">
+          <table class="tbl" id="ordiniTable" style="min-width:900px;width:100%;">
             <thead>
               <tr>
-                <th rowspan="2" style="width:80px;vertical-align:bottom;">DATA INVIO</th>
-                <th rowspan="2" style="width:90px;vertical-align:bottom;">N° CONTRATTO</th>
-                <th rowspan="2" style="vertical-align:bottom;">CLIENTE</th>
-                <th rowspan="2" style="vertical-align:bottom;">FORNITORE</th>
-                <th rowspan="2" style="width:90px;vertical-align:bottom;">N° ODA</th>
-                <th rowspan="2" style="width:60px;vertical-align:bottom;">RATA</th>
+                <th rowspan="2" style="width:7%;vertical-align:bottom;">DATA INVIO</th>
+                <th rowspan="2" style="width:8%;vertical-align:bottom;">N° CONTRATTO</th>
+                <th rowspan="2" style="width:10%;vertical-align:bottom;">CLIENTE</th>
+                <th rowspan="2" style="width:9%;vertical-align:bottom;">FORNITORE</th>
+                <th rowspan="2" style="width:7%;vertical-align:bottom;">N° ODA</th>
+                <th rowspan="2" style="width:4%;vertical-align:bottom;">RATA</th>
                 <th colspan="3" style="text-align:center;background:rgba(45,63,84,0.08);color:#2D3F54;border-bottom:2px solid #2D3F54;font-weight:600;">ORDINE</th>
                 <th colspan="6" style="text-align:center;background:rgba(26,107,42,0.08);color:var(--green);border-bottom:2px solid var(--green);font-weight:600;">RICHIESTA PAGAMENTO</th>
-                <th rowspan="2" style="width:110px;vertical-align:bottom;">CONSEGNA PREVISTA</th>
-                <th style="width:60px;"></th>
+                <th rowspan="2" style="width:8%;vertical-align:bottom;">CONSEGNA PREVISTA</th>
+                <th style="width:5%;"></th>
               </tr>
               <tr>
-                <th class="r" style="background:rgba(45,63,84,0.05);color:#2D3F54;">IMP.</th>
-                <th class="r" style="background:rgba(45,63,84,0.05);color:#2D3F54;">IVA 22%</th>
-                <th class="r" style="background:rgba(45,63,84,0.05);color:#2D3F54;">TOTALE</th>
-                <th class="r" style="background:rgba(26,107,42,0.05);color:var(--green);">% RICH.</th>
-                <th class="r" style="background:rgba(26,107,42,0.05);color:var(--green);">IMP.</th>
-                <th class="r" style="background:rgba(26,107,42,0.05);color:var(--green);">IVA 22%</th>
-                <th class="r" style="background:rgba(26,107,42,0.05);color:var(--green);">DA PAGARE</th>
-                <th style="background:rgba(26,107,42,0.05);color:var(--green);">PAGAMENTO</th>
-                <th style="background:rgba(26,107,42,0.05);color:var(--green);">ENTRO</th>
+                <th class="r" style="width:7%;background:rgba(45,63,84,0.05);color:#2D3F54;">IMP.</th>
+                <th class="r" style="width:6%;background:rgba(45,63,84,0.05);color:#2D3F54;">IVA 22%</th>
+                <th class="r" style="width:7%;background:rgba(45,63,84,0.05);color:#2D3F54;">TOTALE</th>
+                <th class="r" style="width:4%;background:rgba(26,107,42,0.05);color:var(--green);">% RICH.</th>
+                <th class="r" style="width:7%;background:rgba(26,107,42,0.05);color:var(--green);">IMP.</th>
+                <th class="r" style="width:6%;background:rgba(26,107,42,0.05);color:var(--green);">IVA 22%</th>
+                <th class="r" style="width:7%;background:rgba(26,107,42,0.05);color:var(--green);">DA PAGARE</th>
+                <th style="width:6%;background:rgba(26,107,42,0.05);color:var(--green);">PAGAMENTO</th>
+                <th style="width:5%;background:rgba(26,107,42,0.05);color:var(--green);">ENTRO</th>
               </tr>
             </thead>
             <tbody id="ordiniBody">
