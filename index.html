@@ -238,6 +238,23 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   #dtlFoot{flex-wrap:wrap;}
   #dtlFoot .btn{flex:1 1 40%;justify-content:center;font-size:11px;padding:7px 8px;}
 }
+.cal-grid-mese{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.cal-head-day{text-align:center;font-size:10px;font-weight:600;color:var(--text3);padding:4px 0;letter-spacing:.05em;}
+.cal-cell{min-height:80px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;background:var(--surface);}
+.cal-cell.today{border-color:var(--orange)!important;background:var(--orange-bg);}
+.cal-cell.other-month{background:var(--surface2);opacity:.6;}
+.cal-day-num{font-size:11px;font-weight:600;color:var(--text3);margin-bottom:3px;}
+.cal-cell.today .cal-day-num{color:var(--orange);font-weight:700;}
+.cal-event{font-size:10px;padding:2px 5px;border-radius:4px;margin-bottom:2px;background:rgba(45,63,84,0.08);border-left:3px solid #2D3F54;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cal-event .ev-cliente{font-weight:600;color:var(--text);display:block;}
+.cal-event .ev-forn{color:var(--text3);font-size:9px;display:block;}
+.cal-grid-sett{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+.cal-sett-col{border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.cal-sett-head{background:var(--surface2);padding:8px 10px;text-align:center;font-size:12px;font-weight:600;border-bottom:1px solid var(--border);}
+.cal-sett-head.today-h{background:var(--orange-bg);color:var(--orange-dk);}
+.cal-sett-body{padding:6px;min-height:140px;}
+.ordini-tab-btn{padding:4px 12px;border-radius:var(--radius);border:1px solid var(--border2);background:transparent;color:var(--text3);font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.ordini-tab-btn.active{background:var(--orange);color:#fff;border-color:var(--orange);}
 </style>
 </head>
 <body>
@@ -510,8 +527,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div style="margin-bottom:16px;">
       <div class="card" style="overflow-x:auto;">
         <div class="card-head">
-          <h2 id="ordiniTitle">Ordini</h2>
-          <div style="display:flex;gap:8px;align-items:center;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <h2 id="ordiniTitle">Ordini</h2>
+            <div style="display:flex;background:var(--surface2);border-radius:var(--radius);padding:3px;gap:2px;">
+              <button class="ordini-tab-btn active" id="tabLista" onclick="switchOrdiniView('lista',this)">☰ Lista</button>
+              <button class="ordini-tab-btn" id="tabCalMese" onclick="switchOrdiniView('mese',this)">📅 Mese</button>
+              <button class="ordini-tab-btn" id="tabCalSett" onclick="switchOrdiniView('sett',this)">📆 Settimana</button>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;" id="ordiniListControls">
             <button class="btn btn-primary btn-sm" onclick="exportOrdiniXLSX()">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
               Excel
@@ -524,8 +548,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
               <option>PARZIALE</option>
             </select>
           </div>
+          <div style="display:none;gap:8px;align-items:center;" id="ordiniCalControls">
+            <button class="btn btn-ghost btn-sm" onclick="navCal(-1)">‹</button>
+            <span id="calLabel" style="font-size:13px;font-weight:500;min-width:160px;text-align:center;"></span>
+            <button class="btn btn-ghost btn-sm" onclick="navCal(1)">›</button>
+            <button class="btn btn-ghost btn-sm" onclick="goCalToday()">Oggi</button>
+          </div>
         </div>
-        <div style="overflow-x:auto;">
+        <!-- LISTA -->
+        <div id="ordiniListaView" style="overflow-x:auto;">
           <table class="tbl" id="ordiniTable" style="min-width:900px;width:100%;">
             <thead>
               <tr>
@@ -556,6 +587,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
               <tr><td colspan="15" style="text-align:center;padding:40px;color:var(--text3);">Nessun ordine</td></tr>
             </tbody>
           </table>
+        </div>
+        </div><!-- fine ordiniListaView -->
+        <!-- CALENDARIO -->
+        <div id="ordiniCalView" style="display:none;padding:16px;">
+          <div id="calGrid"></div>
         </div>
       </div>
     </div>
@@ -706,10 +742,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <tbody id="prodRows"></tbody>
         </table>
       </div>
-      <button class="btn btn-sm btn-navy" onclick="addProdRow()" style="margin-bottom:16px;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Aggiungi prodotto
-      </button>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+        <button class="btn btn-sm btn-navy" onclick="addProdRow()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Aggiungi prodotto
+        </button>
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;background:var(--surface2);border-radius:var(--radius);padding:8px 12px;border:1px solid var(--border);">
+          <label style="font-size:11px;font-weight:600;color:var(--text3);white-space:nowrap;">SCONTO COMMERCIALE €</label>
+          <input type="number" id="f_sconto_comm" step="0.01" min="0" placeholder="0,00" oninput="calcPrev()"
+            style="width:110px;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Mono',monospace;outline:none;text-align:right;">
+          <span id="f_sconto_pct" style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;min-width:40px;"></span>
+        </div>
+      </div>
 
       <div class="sec-lbl">SERVIZI</div>
       <div class="ptbl-wrap" id="servWrap">
@@ -734,7 +778,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       </div>
 
       <div class="sum-box" style="grid-template-columns:repeat(5,1fr);">
-        <div class="sb-item"><div class="sb-val" id="sv_vend">—</div><div class="sb-lbl">Vendita totale</div></div>
+        <div class="sb-item"><div class="sb-val" id="sv_vend">—</div><div class="sb-lbl">Vendita totale</div><div id="sv_sconto_note" style="font-size:10px;color:var(--red);margin-top:2px;"></div></div>
         <div class="sb-item"><div class="sb-val" id="sv_costo">—</div><div class="sb-lbl">Costo stimato</div></div>
         <div class="sb-item"><div class="sb-val" id="sv_marg">—</div><div class="sb-lbl">Margine €</div></div>
         <div class="sb-item"><div class="sb-val" id="sv_ric_prod">—</div><div class="sb-lbl">Ricarico prodotti</div></div>
@@ -1045,29 +1089,39 @@ function getServRows(){
 
 function calcPrev(){
   const pr=getProdRows(),sr=getServRows();
-  const vp=pr.reduce((s,r)=>s+r.vend_tot,0);
+  const vpLordo=pr.reduce((s,r)=>s+r.vend_tot,0);
   const cp=pr.reduce((s,r)=>s+r.costo_tot,0);
   const vs=sr.reduce((s,r)=>s+r.vend,0);
   const cs=sr.reduce((s,r)=>s+(r.cons||r.costo),0);
+
+  // Sconto commerciale: riduce proporzionalmente la vendita prodotti
+  const scontoComm=parseFloat(document.getElementById('f_sconto_comm')?.value)||0;
+  const vp=Math.max(0,vpLordo-scontoComm);
+
+  // Mostra % sconto
+  const pctEl=document.getElementById('f_sconto_pct');
+  if(pctEl){
+    if(scontoComm>0&&vpLordo>0) pctEl.textContent=`(${(scontoComm/vpLordo*100).toFixed(1)}%)`;
+    else pctEl.textContent='';
+  }
+
   const vt=vp+vs,ct=cp+cs,mg=vt-ct;
-  // Ricarico SOLO su prodotti
   const ricProd=cp>0?(vp-cp)/cp:null;
-  // Ricarico SOLO su posa (tutte le righe servizio)
   const vPosa=sr.reduce((s,r)=>s+r.vend,0);
   const cPosa=sr.reduce((s,r)=>s+(r.cons||r.costo),0);
   const ricPosa=cPosa>0?(vPosa-cPosa)/cPosa:null;
 
   document.getElementById('sv_vend').textContent=vt>0?euro(vt):'—';
+  const scontoNote=document.getElementById('sv_sconto_note');
+  if(scontoNote) scontoNote.textContent=scontoComm>0?`sc. comm. −${euro(scontoComm)}`:'';
   document.getElementById('sv_costo').textContent=ct>0?euro(ct):'—';
   const sm=document.getElementById('sv_marg');
   sm.textContent=vt>0?euro(mg):'—';sm.className='sb-val'+(mg>=0&&vt>0?' val-g':vt>0?' val-r':'');
-  // Ricarico prodotti
   const sp=document.getElementById('sv_ric_prod');
   if(ricProd!==null){sp.textContent=ric(ricProd);sp.className='sb-val'+(ricProd>=REF?' val-g':' val-r');}
   else{sp.textContent='—';sp.className='sb-val';}
-  // Ricarico posa
   const spos=document.getElementById('sv_ric_posa');
-  if(ricPosa!==null){spos.textContent=ric(ricPosa);spos.className='sb-val'+(ricPosa>=REF?' val-g':' val-r');}
+  if(ricPosa!==null){spos.textContent=ric(ricPosa);spos.className='sb-val'+(ricPosa>=0?' val-g':' val-r');}
   else{spos.textContent='—';spos.className='sb-val';}
 }
 
@@ -1112,6 +1166,7 @@ function openForm(id){
   document.getElementById('f_compilato').value=c?c.compilato:'';
   document.getElementById('f_modificato').value='';
   document.getElementById('f_note').value=c?c.note:'';
+  document.getElementById('f_sconto_comm').value=c?.sconto_comm||'';
   // Annulla e sostituisce
   const annullaCheck=document.getElementById('f_annulla');
   annullaCheck.checked=c?.annulla||false;
@@ -1150,17 +1205,16 @@ async function saveCommessa(){
   if(err){showToast('Compila i campi obbligatori',true);return;}
   const pr=getProdRows().filter(p=>p.nome||p.vend_tot>0);
   const sr=getServRows();
-  const vend_prod=pr.reduce((s,r)=>s+r.vend_tot,0);
+  const vend_prod_lordo=pr.reduce((s,r)=>s+r.vend_tot,0);
+  const sconto_comm=parseFloat(document.getElementById('f_sconto_comm').value)||0;
+  const vend_prod=Math.max(0,vend_prod_lordo-sconto_comm);
   const costo_prod=pr.reduce((s,r)=>s+r.costo_tot,0);
   const vend_serv=sr.reduce((s,r)=>s+r.vend,0);
   const costo_serv=sr.reduce((s,r)=>s+(r.cons||r.costo),0);
   const vend_tot=vend_prod+vend_serv,costo_tot=costo_prod+costo_serv;
   const marg=vend_tot-costo_tot;
-  // Ricarico solo su prodotti (per esito)
   const ric_prod=costo_prod>0?(vend_prod-costo_prod)/costo_prod:0;
-  // Ricarico posa separato
   const ric_posa=costo_serv>0?(vend_serv-costo_serv)/costo_serv:0;
-  // Ricarico totale (informativo)
   const ric_tot=costo_tot>0?marg/costo_tot:0;
   const now=new Date().toISOString();
   const existing=editId?DB.find(x=>x.id===editId):null;
@@ -1176,6 +1230,7 @@ async function saveCommessa(){
     annulla:annulla||false,
     annulla_data:annulla?annulla_dates:undefined,
     stato:existing?.stato||'Contratto',
+    sconto_comm:parseFloat(document.getElementById('f_sconto_comm').value)||0,
     prodotti:pr,servizi:sr,
     vend_prod,costo_prod,vend_serv,costo_serv,
     vend_tot,costo_tot,marg,ric:ric_prod,ric_posa,ric_tot
@@ -1363,7 +1418,7 @@ function render(){
     <tbody>${filtered.map(c=>{
       const ok=c.ric>=REF;
       const pill=c.vend_tot>0?`<span class="pill ${ok?'pill-g':'pill-r'}">${ok?'Positivo':'Negativo'}</span>`:`<span class="pill pill-n">—</span>`;
-      // Aggrega fornitori
+      // Aggrega fornitori con sconto commerciale distribuito proporzionalmente
       const fornMap={};
       (c.prodotti||[]).forEach(p=>{
         const k=(p.fornitore||'—').trim()||'—';
@@ -1372,6 +1427,18 @@ function render(){
         fornMap[k].costo+=p.costo_tot||0;
         fornMap[k].marg+=p.marg||0;
       });
+      // Distribuisce sconto commerciale mantenendo ricarico uniforme per tutti i fornitori
+      const sconto=c.sconto_comm||0;
+      const vendLordo=Object.values(fornMap).reduce((s,v)=>s+v.vend,0);
+      const costoTotProd=Object.values(fornMap).reduce((s,v)=>s+v.costo,0);
+      if(sconto>0&&costoTotProd>0){
+        const vendNettaTot=Math.max(0,vendLordo-sconto);
+        const ricTarget=vendNettaTot/costoTotProd-1; // ricarico uniforme
+        Object.values(fornMap).forEach(v=>{
+          v.vend=Math.round(v.costo*(1+ricTarget)*100)/100;
+          v.marg=Math.round((v.vend-v.costo)*100)/100;
+        });
+      }
       const fornEntries=Object.entries(fornMap).sort((a,b)=>b[1].vend-a[1].vend);
       const fornRows=fornEntries.map(([k,v])=>{
         const r=v.costo>0?(v.vend-v.costo)/v.costo:0;
@@ -1671,7 +1738,9 @@ function exportPDF(id){
     <div>
       <div class="section-title" style="margin-bottom:6px;">Riepilogo economico</div>
       <div class="rsum">
-        <div class="rrow"><span class="rlbl">Vendita prodotti</span><span>${euro(c.vend_prod)}</span></div>
+        <div class="rrow"><span class="rlbl">Vendita prodotti (lordo)</span><span>${euro((c.vend_prod||0)+(c.sconto_comm||0))}</span></div>
+        ${c.sconto_comm?`<div class="rrow"><span class="rlbl" style="color:#8B2020;">Sconto commerciale</span><span style="color:#8B2020;">− ${euro(c.sconto_comm)}</span></div>`:''}
+        <div class="rrow"><span class="rlbl">Vendita prodotti (netto)</span><span style="font-weight:600;">${euro(c.vend_prod)}</span></div>
         ${c.vend_serv?`<div class="rrow"><span class="rlbl">Vendita posa/servizi</span><span>${euro(c.vend_serv)}</span></div>`:''}
         <div class="rrow"><span class="rlbl">Costo totale</span><span style="color:#8B2020">${euro(c.costo_tot)}</span></div>
         <div class="rrow"><span class="rlbl">Margine €</span><span style="color:${c.marg>=0?'#1A6B2A':'#8B2020'}">${euro(c.marg)}</span></div>
@@ -2238,7 +2307,118 @@ ${allRows.map((row,ri)=>`<row r="${ri+1}">${row.map((v,ci)=>cell(v,ri+1,ci)).joi
   });
 }
 
-/* ── FINE ORDINI ── */
+/* ── CALENDARIO ORDINI ── */
+let calView='lista'; // 'lista' | 'mese' | 'sett'
+let calDate=new Date();
+
+function switchOrdiniView(view, btn){
+  calView=view;
+  document.querySelectorAll('.ordini-tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const isList=view==='lista';
+  document.getElementById('ordiniListaView').style.display=isList?'':'none';
+  document.getElementById('ordiniCalView').style.display=isList?'none':'block';
+  document.getElementById('ordiniListControls').style.display=isList?'flex':'none';
+  document.getElementById('ordiniCalControls').style.display=isList?'none':'flex';
+  if(!isList) renderCal();
+}
+
+function navCal(dir){
+  if(calView==='mese') calDate=new Date(calDate.getFullYear(),calDate.getMonth()+dir,1);
+  else calDate=new Date(calDate.getFullYear(),calDate.getMonth(),calDate.getDate()+dir*7);
+  renderCal();
+}
+
+function goCalToday(){calDate=new Date();renderCal();}
+
+function getOrdiniEvents(){
+  // Ritorna mappa giorno->eventi [{cliente,fornitore,color}]
+  const map={};
+  ORDINI_DB.forEach(o=>{
+    if(!o.sett_da) return;
+    const anno=o.sett_anno||new Date().getFullYear();
+    const lunDa=settDate(o.sett_da,anno,true);
+    const venA=settDate(o.sett_a||o.sett_da,anno,false);
+    // Aggiungi a ogni giorno lavorativo nel range
+    const d=new Date(lunDa);
+    while(d<=venA){
+      const dw=d.getDay();
+      if(dw>=1&&dw<=5){ // lun-ven
+        const key=d.toISOString().slice(0,10);
+        if(!map[key]) map[key]=[];
+        map[key].push({cliente:o.cliente||'—',fornitore:o.fornitore||'—',stato:o.pagamento||''});
+      }
+      d.setDate(d.getDate()+1);
+    }
+  });
+  return map;
+}
+
+function eventHtml(ev){
+  const c=ev.stato==='PAGATO'?'#22C55E':ev.stato==='PARZIALE'?'#F59E0B':'#2D3F54';
+  return`<div class="cal-event" style="border-left-color:${c};" title="${ev.cliente} — ${ev.fornitore}">
+    <span class="ev-cliente">${ev.cliente}</span>
+    <span class="ev-forn">${ev.fornitore}</span>
+  </div>`;
+}
+
+function renderCal(){
+  const events=getOrdiniEvents();
+  const today=new Date().toISOString().slice(0,10);
+  const giorni=['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+  const mesi=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+
+  if(calView==='mese'){
+    const y=calDate.getFullYear(), m=calDate.getMonth();
+    document.getElementById('calLabel').textContent=`${mesi[m]} ${y}`;
+    const first=new Date(y,m,1);
+    const last=new Date(y,m+1,0);
+    // Lunedì della prima settimana
+    let start=new Date(first);
+    start.setDate(first.getDate()-((first.getDay()+6)%7));
+
+    let html=`<div class="cal-grid-mese">`;
+    giorni.forEach(g=>html+=`<div class="cal-head-day">${g}</div>`);
+    const cur=new Date(start);
+    for(let i=0;i<42;i++){
+      const key=cur.toISOString().slice(0,10);
+      const isToday=key===today;
+      const isOther=cur.getMonth()!==m;
+      const evs=events[key]||[];
+      html+=`<div class="cal-cell${isToday?' today':''}${isOther?' other-month':''}">
+        <div class="cal-day-num">${cur.getDate()}</div>
+        ${evs.map(ev=>eventHtml(ev)).join('')}
+      </div>`;
+      cur.setDate(cur.getDate()+1);
+      if(i>=34&&cur.getMonth()!==m) break;
+    }
+    html+=`</div>`;
+    document.getElementById('calGrid').innerHTML=html;
+
+  } else { // settimana (lun-ven)
+    const dow=(calDate.getDay()+6)%7;
+    const lun=new Date(calDate); lun.setDate(calDate.getDate()-dow);
+    const ven=new Date(lun); ven.setDate(lun.getDate()+4);
+    const fmtShort=d=>`${d.getDate()} ${mesi[d.getMonth()].slice(0,3)}`;
+    document.getElementById('calLabel').textContent=`Sett. ${fmtShort(lun)} – ${fmtShort(ven)} ${ven.getFullYear()}`;
+
+    let html=`<div class="cal-grid-sett">`;
+    for(let i=0;i<5;i++){
+      const d=new Date(lun); d.setDate(lun.getDate()+i);
+      const key=d.toISOString().slice(0,10);
+      const isToday=key===today;
+      const evs=events[key]||[];
+      html+=`<div class="cal-sett-col">
+        <div class="cal-sett-head${isToday?' today-h':''}">${giorni[i]} ${d.getDate()}/${d.getMonth()+1}</div>
+        <div class="cal-sett-body">${evs.length?evs.map(ev=>eventHtml(ev)).join(''):`<div style="font-size:11px;color:var(--text3);text-align:center;padding-top:20px;">—</div>`}</div>
+      </div>`;
+    }
+    html+=`</div>`;
+    document.getElementById('calGrid').innerHTML=html;
+  }
+}
+
+/* ── FINE CALENDARIO ── */
 let chartFatturato=null, chartRicarico=null;
 let pannelloUnlocked=false;
 
