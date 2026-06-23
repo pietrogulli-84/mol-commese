@@ -1267,14 +1267,25 @@ function openDtl(id){
   document.getElementById('dtlTitle').textContent=c.cliente;
   const ok=c.ric>=REF; // esito basato solo su ricarico prodotti
   const okPosa=c.ric_posa>=REF;
-  const prows=(c.prodotti||[]).map(p=>`<tr>
+  const scontoDtl=c.sconto_comm||0;
+  const vendLordoDtl=(c.prodotti||[]).reduce((s,p)=>s+(p.vend_tot||0),0);
+  const costoDtl=(c.prodotti||[]).reduce((s,p)=>s+(p.costo_tot||0),0);
+  const ricTargetDtl=scontoDtl>0&&costoDtl>0?(Math.max(0,vendLordoDtl-scontoDtl)/costoDtl-1):null;
+
+  const prows=(c.prodotti||[]).map(p=>{
+    const vendNetta=ricTargetDtl!==null?Math.round(p.costo_tot*(1+ricTargetDtl)*100)/100:p.vend_tot;
+    const margNetto=Math.round((vendNetta-p.costo_tot)*100)/100;
+    return`<tr>
     <td>${p.nome||'—'}</td><td>${p.fornitore||'—'}</td><td class="r">${p.qty}</td>
     <td class="r mono">${euro(p.vend)}</td><td class="r mono">${p.listino>0?euro(p.listino):'—'}</td>
     <td class="r mono">${p.sc1>0?p.sc1+'%':'—'}</td><td class="r mono">${p.sc2>0?p.sc2+'%':'—'}</td>
     <td class="r mono">${p.listino>0?euro(p.costo_netto_u):'—'}</td>
-    <td class="r mono">${euro(p.vend_tot)}</td><td class="r mono">${euro(p.costo_tot)}</td>
-    <td class="r mono" style="font-weight:500;color:${p.marg>=0?'var(--green)':'var(--red)'}">${euro(p.marg)}</td>
-  </tr>`).join('');
+    <td class="r mono">${euro(p.vend_tot)}</td>
+    ${scontoDtl?`<td class="r mono" style="font-weight:600;color:var(--green);">${euro(vendNetta)}</td>`:''}
+    <td class="r mono">${euro(p.costo_tot)}</td>
+    <td class="r mono" style="font-weight:500;color:${margNetto>=0?'var(--green)':'var(--red)'}">${euro(margNetto)}</td>
+  </tr>`;
+  }).join('');
   const srows=(c.servizi||[]).filter(s=>s.vend||s.costo).map(s=>`<tr>
     <td>${s.cat}</td><td>${s.desc||'—'}</td>
     <td class="r mono">${euro(s.vend)}</td><td class="r mono">${euro(s.costo)}</td>
@@ -1301,7 +1312,7 @@ function openDtl(id){
     ${prows?`<div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.07em;margin-bottom:8px;">PRODOTTI</div>
     <div style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;overflow-x:auto;margin-bottom:16px;">
     <table class="tbl" style="font-size:12px;min-width:700px;">
-      <thead><tr><th>Prodotto</th><th>Fornitore</th><th class="r">Q.tà</th><th class="r">Vend. cad.</th><th class="r">Listino</th><th class="r">Sc.1%</th><th class="r">Sc.2%</th><th class="r">Netto cad.</th><th class="r">Vend. tot.</th><th class="r">Costo tot.</th><th class="r">Margine</th></tr></thead>
+      <thead><tr><th>Prodotto</th><th>Fornitore</th><th class="r">Q.tà</th><th class="r">Vend. cad.</th><th class="r">Listino</th><th class="r">Sc.1%</th><th class="r">Sc.2%</th><th class="r">Netto cad.</th><th class="r">Vend. tot.</th>${scontoDtl?'<th class="r" style="color:var(--green);font-weight:600;">Vend. netta</th>':''}<th class="r">Costo tot.</th><th class="r">Margine</th></tr></thead>
       <tbody>${prows}</tbody>
     </table></div>`:''}
     ${srows?`<div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.07em;margin-bottom:8px;">SERVIZI</div>
@@ -1651,15 +1662,27 @@ function exportPDF(id){
   const okPosa=(c.ric_posa||0)>=0;
   const forn=aggFornitore(c.prodotti);
 
-  const prows=(c.prodotti||[]).map(p=>`<tr>
+  // Calcola vendita netta per prodotto con ricarico uniforme
+  const scontoPDF=c.sconto_comm||0;
+  const vendLordoProd=(c.prodotti||[]).reduce((s,p)=>s+(p.vend_tot||0),0);
+  const costoProd=(c.prodotti||[]).reduce((s,p)=>s+(p.costo_tot||0),0);
+  const ricTarget=scontoPDF>0&&costoProd>0?(Math.max(0,vendLordoProd-scontoPDF)/costoProd-1):null;
+
+  const prows=(c.prodotti||[]).map(p=>{
+    const vendNetta=ricTarget!==null?Math.round(p.costo_tot*(1+ricTarget)*100)/100:p.vend_tot;
+    const margNetto=Math.round((vendNetta-p.costo_tot)*100)/100;
+    return`<tr>
     <td>${p.nome||'—'}</td><td>${p.fornitore||'—'}</td><td style="text-align:right">${p.qty}</td>
-    <td style="text-align:right">${euro(p.vend)}</td><td style="text-align:right">${euro(p.vend_tot)}</td>
+    <td style="text-align:right">${euro(p.vend)}</td>
+    <td style="text-align:right">${euro(p.vend_tot)}</td>
+    ${scontoPDF?`<td style="text-align:right;font-weight:600;color:#1A6B2A">${euro(vendNetta)}</td>`:''}
     <td style="text-align:right">${p.listino>0?euro(p.listino):'—'}</td>
     <td style="text-align:right">${p.sc1>0?p.sc1+'%':'—'}</td><td style="text-align:right">${p.sc2>0?p.sc2+'%':'—'}</td>
     <td style="text-align:right">${p.listino>0?euro(p.costo_netto_u):'—'}</td>
     <td style="text-align:right">${euro(p.costo_tot)}</td>
-    <td style="text-align:right;font-weight:600;color:${p.marg>=0?'#1A6B2A':'#8B2020'}">${euro(p.marg)}</td>
-  </tr>`).join('');
+    <td style="text-align:right;font-weight:600;color:${margNetto>=0?'#1A6B2A':'#8B2020'}">${euro(margNetto)}</td>
+  </tr>`;
+  }).join('');
 
   const srows=(c.servizi||[]).filter(s=>s.vend||s.costo).map(s=>`<tr>
     <td>${s.cat}</td><td>${s.desc||'—'}</td>
@@ -1669,11 +1692,25 @@ function exportPDF(id){
     <td style="text-align:right;color:${s.marg>=0?'#1A6B2A':'#8B2020'}">${euro(s.marg)}</td>
   </tr>`).join('');
 
-  const fornRows=forn.map(f=>`<tr>
+  // Applica sconto commerciale al riepilogo fornitore con ricarico uniforme
+  const sconto=c.sconto_comm||0;
+  const vendLordo=forn.reduce((s,f)=>s+f.vend_tot,0);
+  const costoTotF=forn.reduce((s,f)=>s+f.costo_tot,0);
+  const fornNet=forn.map(f=>{
+    if(sconto>0&&costoTotF>0){
+      const vendNettaTot=Math.max(0,vendLordo-sconto);
+      const ricTarget=vendNettaTot/costoTotF-1;
+      const vendNet=Math.round(f.costo_tot*(1+ricTarget)*100)/100;
+      return{...f,vend_net:vendNet,marg_net:Math.round((vendNet-f.costo_tot)*100)/100};
+    }
+    return{...f,vend_net:f.vend_tot,marg_net:f.marg};
+  });
+
+  const fornRows=fornNet.map(f=>`<tr>
     <td><b>${f.fornitore}</b></td>
-    <td style="text-align:right">${euro(f.vend_tot)}</td>
+    <td style="text-align:right">${euro(f.vend_net)}</td>
     <td style="text-align:right">${euro(f.costo_tot)}</td>
-    <td style="text-align:right;font-weight:600;color:${f.marg>=0?'#1A6B2A':'#8B2020'}">${euro(f.marg)}</td>
+    <td style="text-align:right;font-weight:600;color:${f.marg_net>=0?'#1A6B2A':'#8B2020'}">${euro(f.marg_net)}</td>
   </tr>`).join('');
 
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -1728,7 +1765,7 @@ function exportPDF(id){
   ${prows?`<div class="section">
     <div class="section-title">Prodotti</div>
     <table>
-      <thead><tr><th>Prodotto</th><th>Fornitore</th><th class="r">Q.tà</th><th class="r">Vend. cad.</th><th class="r">Vend. tot.</th><th class="r">Listino</th><th class="r">Sc.1%</th><th class="r">Sc.2%</th><th class="r">Netto cad.</th><th class="r">Costo tot.</th><th class="r">Margine</th></tr></thead>
+      <thead><tr><th>Prodotto</th><th>Fornitore</th><th class="r">Q.tà</th><th class="r">Vend. cad.</th><th class="r">Vend. tot.</th>${scontoPDF?'<th class="r" style="color:#1A6B2A;font-weight:700;">Vend. netta</th>':''}<th class="r">Listino</th><th class="r">Sc.1%</th><th class="r">Sc.2%</th><th class="r">Netto cad.</th><th class="r">Costo tot.</th><th class="r">Margine</th></tr></thead>
       <tbody>${prows}</tbody>
     </table>
   </div>`:''}
@@ -1747,6 +1784,7 @@ function exportPDF(id){
         ${c.sconto_comm?`<div class="rrow"><span class="rlbl" style="color:#8B2020;">Sconto commerciale</span><span style="color:#8B2020;">− ${euro(c.sconto_comm)}</span></div>`:''}
         <div class="rrow"><span class="rlbl">Vendita prodotti (netto)</span><span style="font-weight:600;">${euro(c.vend_prod)}</span></div>
         ${c.vend_serv?`<div class="rrow"><span class="rlbl">Vendita posa/servizi</span><span>${euro(c.vend_serv)}</span></div>`:''}
+        <div class="rrow" style="border-top:1px solid #EFEDE9;margin-top:2px;padding-top:4px;"><span style="font-weight:700;">Vendita totale (netta)</span><span style="font-weight:700;">${euro(c.vend_tot)}</span></div>
         <div class="rrow"><span class="rlbl">Costo totale</span><span style="color:#8B2020">${euro(c.costo_tot)}</span></div>
         <div class="rrow"><span class="rlbl">Margine €</span><span style="color:${c.marg>=0?'#1A6B2A':'#8B2020'}">${euro(c.marg)}</span></div>
         <div class="rrow"><span>Ricarico prodotti</span><span style="color:${ok?'#1A6B2A':'#8B2020'}">${ric(c.ric)} <span class="pill ${ok?'pill-g':'pill-r'}">${ok?'Positivo':'Negativo'}</span></span></div>
