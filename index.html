@@ -773,6 +773,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
         <button class="btn btn-sm btn-navy" onclick="addServRow('Posa')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Posa</button>
+        <button class="btn btn-sm btn-navy" onclick="addServRow('Materiale di posa')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Materiale di posa</button>
         <button class="btn btn-sm btn-navy" onclick="addServRow('Trasporto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Trasporto</button>
         <button class="btn btn-sm btn-navy" onclick="addServRow('Altro')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Altro</button>
       </div>
@@ -1049,14 +1050,18 @@ function getProdRows(){
 /* SERVICE ROWS */
 function addServRow(cat,s){
   sRowN++;const id=sRowN;s=s||{};
+  const selCat=s.cat||cat;
+  // Auto-compila descrizione per Materiale di posa
+  const autoDesc=s.desc||(cat==='Materiale di posa'&&!s.desc?'Materiale di posa':'');
   const tr=document.createElement('tr');tr.id='sr'+id;
   tr.innerHTML=`
     <td><select id="sc${id}" oninput="calcPrev()" style="width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;outline:none;">
-      <option ${(s.cat||cat)==='Posa'?'selected':''}>Posa</option>
-      <option ${(s.cat||cat)==='Trasporto'?'selected':''}>Trasporto</option>
-      <option ${(s.cat||cat)==='Altro'?'selected':''}>Altro</option>
+      <option ${selCat==='Posa'?'selected':''}>Posa</option>
+      <option ${selCat==='Materiale di posa'?'selected':''}>Materiale di posa</option>
+      <option ${selCat==='Trasporto'?'selected':''}>Trasporto</option>
+      <option ${selCat==='Altro'?'selected':''}>Altro</option>
     </select></td>
-    <td><input id="sd${id}" type="text" value="${s.desc||''}" placeholder="Descrizione..." oninput="calcPrev()"></td>
+    <td><input id="sd${id}" type="text" value="${autoDesc}" placeholder="Descrizione..." oninput="calcPrev()"></td>
     <td><input id="svv${id}" type="number" value="${s.vend||''}" placeholder="0,00" step="0.01" oninput="calcPrev()"></td>
     <td><input id="scc${id}" type="number" value="${s.costo||''}" placeholder="0,00" step="0.01" oninput="calcPrev()"></td>
     <td><input id="scons${id}" type="number" value="${s.cons||''}" placeholder="vuoto=stimato" step="0.01" oninput="calcPrev()"></td>
