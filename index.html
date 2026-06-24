@@ -533,6 +533,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
               <button class="ordini-tab-btn active" id="tabLista" onclick="switchOrdiniView('lista',this)">☰ Lista</button>
               <button class="ordini-tab-btn" id="tabCalMese" onclick="switchOrdiniView('mese',this)">📅 Mese</button>
               <button class="ordini-tab-btn" id="tabCalSett" onclick="switchOrdiniView('sett',this)">📆 Settimana</button>
+              <button class="ordini-tab-btn" id="tabScadenze" onclick="switchOrdiniView('scadenze',this)">⏰ Scadenze</button>
             </div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;" id="ordiniListControls">
@@ -592,6 +593,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         <!-- CALENDARIO -->
         <div id="ordiniCalView" style="display:none;padding:16px;">
           <div id="calGrid"></div>
+        </div>
+        <!-- SCADENZE TIMELINE -->
+        <div id="ordiniScadenzeView" style="display:none;padding:20px;">
+          <div id="scadenzeGrid"></div>
         </div>
       </div>
     </div>
@@ -1904,6 +1909,7 @@ async function loadOrdini(){
     const rows=await sbFetch('ordini?select=*&order=created_at.desc');
     ORDINI_DB=(rows||[]).map(r=>r.data);
     renderOrdini();
+    if(calView==='scadenze') renderScadenze();
   }catch(e){console.error('Errore caricamento ordini',e);}
 }
 
@@ -2359,11 +2365,15 @@ function switchOrdiniView(view, btn){
   document.querySelectorAll('.ordini-tab-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   const isList=view==='lista';
+  const isCal=view==='mese'||view==='sett';
+  const isScad=view==='scadenze';
   document.getElementById('ordiniListaView').style.display=isList?'':'none';
-  document.getElementById('ordiniCalView').style.display=isList?'none':'block';
+  document.getElementById('ordiniCalView').style.display=isCal?'block':'none';
+  document.getElementById('ordiniScadenzeView').style.display=isScad?'block':'none';
   document.getElementById('ordiniListControls').style.display=isList?'flex':'none';
-  document.getElementById('ordiniCalControls').style.display=isList?'none':'flex';
-  if(!isList) renderCal();
+  document.getElementById('ordiniCalControls').style.display=isCal?'flex':'none';
+  if(isCal) renderCal();
+  if(isScad) renderScadenze();
 }
 
 function navCal(dir){
@@ -2375,33 +2385,40 @@ function navCal(dir){
 function goCalToday(){calDate=new Date();renderCal();}
 
 function getOrdiniEvents(){
-  // Ritorna mappa giorno->eventi [{cliente,fornitore,color}]
   const map={};
   ORDINI_DB.forEach(o=>{
     if(!o.sett_da) return;
     const anno=o.sett_anno||new Date().getFullYear();
     const lunDa=settDate(o.sett_da,anno,true);
     const venA=settDate(o.sett_a||o.sett_da,anno,false);
-    // Aggiungi a ogni giorno lavorativo nel range
     const d=new Date(lunDa);
     while(d<=venA){
       const dw=d.getDay();
-      if(dw>=1&&dw<=5){ // lun-ven
+      if(dw>=1&&dw<=5){
         const key=d.toISOString().slice(0,10);
-        if(!map[key]) map[key]=[];
-        map[key].push({cliente:o.cliente||'—',fornitore:o.fornitore||'—',stato:o.pagamento||''});
+        if(!map[key]) map[key]={};
+        const cli=o.cliente||'—';
+        if(!map[key][cli]) map[key][cli]=new Set();
+        if(o.fornitore) map[key][cli].add(o.fornitore);
       }
       d.setDate(d.getDate()+1);
     }
   });
-  return map;
+  // Converte in array per rendering
+  const result={};
+  Object.entries(map).forEach(([day,clienti])=>{
+    result[day]=Object.entries(clienti).map(([cli,forni])=>({
+      cliente:cli,
+      fornitori:[...forni]
+    }));
+  });
+  return result;
 }
 
 function eventHtml(ev){
-  const c=ev.stato==='PAGATO'?'#22C55E':ev.stato==='PARZIALE'?'#F59E0B':'#2D3F54';
-  return`<div class="cal-event" style="border-left-color:${c};" title="${ev.cliente} — ${ev.fornitore}">
+  return`<div class="cal-event" title="${ev.cliente} — ${ev.fornitori.join(', ')}">
     <span class="ev-cliente">${ev.cliente}</span>
-    <span class="ev-forn">${ev.fornitore}</span>
+    <span class="ev-forn">${ev.fornitori.join(', ')}</span>
   </div>`;
 }
 
@@ -2461,7 +2478,117 @@ function renderCal(){
   }
 }
 
-/* ── FINE CALENDARIO ── */
+/* ── SCADENZE TIMELINE ── */
+function renderScadenze(){
+  const el=document.getElementById('scadenzeGrid');
+  const today=new Date().toISOString().slice(0,10);
+
+  // Raggruppa per data scadenza
+  const map={};
+  ORDINI_DB.forEach(o=>{
+    if(!o.data_scadenza) return;
+    const k=o.data_scadenza;
+    if(!map[k]) map[k]={data:k,ordini:[],tot:0};
+    const IVA=0.22;
+    const imp=o.imp||0, pct=o.pct||0;
+    const imp_pag=imp*pct/100;
+    const da_pag=Math.round(imp_pag*(1+IVA)*100)/100;
+    map[k].tot+=da_pag;
+    map[k].ordini.push({...o, da_pag});
+  });
+
+  const entries=Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0]));
+  if(!entries.length){
+    el.innerHTML='<p style="color:var(--text3);text-align:center;padding:40px;">Nessuna scadenza impostata</p>';
+    return;
+  }
+
+  // Totali KPI
+  const totScaduto=entries.filter(([k])=>k<today).reduce((s,[,v])=>s+v.tot,0);
+  const totMese=entries.filter(([k])=>{
+    const d=new Date(k),n=new Date();
+    return d>=new Date(today)&&d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();
+  }).reduce((s,[,v])=>s+v.tot,0);
+  const totFuturo=entries.filter(([k])=>{
+    const d=new Date(k),n=new Date();
+    return d>=new Date(today)&&!(d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear());
+  }).reduce((s,[,v])=>s+v.tot,0);
+
+  let html=`
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;">
+      <div style="background:${totScaduto>0?'rgba(192,0,12,0.07)':'var(--surface2)'};border-radius:var(--radius-lg);padding:14px 16px;border:1px solid ${totScaduto>0?'rgba(192,0,12,0.2)':'var(--border)'};">
+        <div style="font-size:10px;font-weight:600;letter-spacing:.07em;color:${totScaduto>0?'var(--red)':'var(--text3)'};margin-bottom:6px;">SCADUTO</div>
+        <div style="font-size:20px;font-weight:600;font-family:'DM Mono',monospace;color:${totScaduto>0?'var(--red)':'var(--text3)'};">${euro(totScaduto)}</div>
+      </div>
+      <div style="background:rgba(232,66,10,0.06);border-radius:var(--radius-lg);padding:14px 16px;border:1px solid rgba(232,66,10,0.15);">
+        <div style="font-size:10px;font-weight:600;letter-spacing:.07em;color:var(--orange);margin-bottom:6px;">QUESTO MESE</div>
+        <div style="font-size:20px;font-weight:600;font-family:'DM Mono',monospace;color:var(--orange);">${euro(totMese)}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--radius-lg);padding:14px 16px;border:1px solid var(--border);">
+        <div style="font-size:10px;font-weight:600;letter-spacing:.07em;color:var(--text3);margin-bottom:6px;">PROSSIMI MESI</div>
+        <div style="font-size:20px;font-weight:600;font-family:'DM Mono',monospace;">${euro(totFuturo)}</div>
+      </div>
+    </div>
+    <div style="position:relative;padding-left:88px;">
+      <div style="position:absolute;left:76px;top:8px;bottom:8px;width:1px;background:var(--border);"></div>`;
+
+  entries.forEach(([k,v],idx)=>{
+    const isScad=k<today;
+    const isOggi=k===today;
+    const dotColor=isScad?'#C0000C':isOggi?'var(--orange)':'#2D3F54';
+    const bgColor=isScad?'rgba(192,0,12,0.06)':isOggi?'var(--orange-bg)':'var(--surface2)';
+    const borderColor=isScad?'rgba(192,0,12,0.2)':isOggi?'rgba(232,66,10,0.25)':'var(--border)';
+    const label=isScad?'Scaduto':isOggi?'Oggi':'';
+
+    const detailRows=v.ordini.map(o=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border);">
+        <div>
+          <span style="font-size:12px;font-weight:500;">${o.cliente||'—'}</span>
+          <span style="font-size:11px;color:var(--text3);margin-left:8px;">${o.fornitore||''}</span>
+          ${o.rata&&o.rata!=='Unica'?`<span style="font-size:10px;background:var(--surface2);padding:1px 5px;border-radius:4px;margin-left:6px;">${o.rata}</span>`:''}
+        </div>
+        <div style="text-align:right;">
+          <span style="font-size:12px;font-weight:600;font-family:'DM Mono',monospace;color:var(--green);">${euro(o.da_pag)}</span>
+          ${o.pagamento?`<span style="font-size:10px;color:${o.pagamento==='PAGATO'?'var(--green)':o.pagamento==='PARZIALE'?'var(--orange)':'var(--text3)'};display:block;">${o.pagamento}</span>`:''}
+        </div>
+      </div>`).join('');
+
+    html+=`
+      <div style="position:relative;margin-bottom:14px;">
+        <div style="position:absolute;left:-18px;top:14px;width:12px;height:12px;border-radius:50%;background:${dotColor};border:2px solid var(--surface);z-index:1;"></div>
+        <div style="position:absolute;left:-76px;top:10px;font-size:11px;font-weight:600;color:${dotColor};text-align:right;width:52px;">${df(k)}</div>
+        <div style="background:${bgColor};border:1px solid ${borderColor};border-radius:var(--radius-lg);overflow:hidden;">
+          <div onclick="toggleScadenza('sc${idx}')" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;user-select:none;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              ${label?`<span style="font-size:10px;font-weight:600;background:${dotColor};color:#fff;padding:2px 7px;border-radius:99px;">${label}</span>`:''}
+              <span style="font-size:13px;font-weight:500;">${v.ordini.length} ordin${v.ordini.length===1?'e':'i'}</span>
+              <span style="font-size:11px;color:var(--text3);">${v.ordini.map(o=>o.fornitore).filter((f,i,a)=>a.indexOf(f)===i).join(', ')}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="font-size:15px;font-weight:600;font-family:'DM Mono',monospace;">${euro(v.tot)}</span>
+              <svg id="sc${idx}-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;color:var(--text3);transition:transform .2s;"><polyline points="9,6 15,12 9,18"/></svg>
+            </div>
+          </div>
+          <div id="sc${idx}" style="display:none;padding:0 16px 12px;">
+            ${detailRows}
+          </div>
+        </div>
+      </div>`;
+  });
+
+  html+=`</div>`;
+  el.innerHTML=html;
+}
+
+function toggleScadenza(id){
+  const el=document.getElementById(id);
+  const arrow=document.getElementById(id+'-arrow');
+  if(!el) return;
+  const open=el.style.display==='block';
+  el.style.display=open?'none':'block';
+  if(arrow) arrow.style.transform=open?'':'rotate(90deg)';
+}
+/* ── FINE SCADENZE ── */
 let chartFatturato=null, chartRicarico=null;
 let pannelloUnlocked=false;
 
