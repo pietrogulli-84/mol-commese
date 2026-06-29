@@ -2504,7 +2504,7 @@ function renderScadenze(){
   }
 
   // Totali KPI
-  const totScaduto=entries.filter(([k])=>k<today).reduce((s,[,v])=>s+v.tot,0);
+  const totScaduto=entries.filter(([k,v])=>k<today&&!v.ordini.every(o=>o.pagamento==='PAGATO')).reduce((s,[,v])=>s+v.tot,0);
   const totMese=entries.filter(([k])=>{
     const d=new Date(k),n=new Date();
     return d>=new Date(today)&&d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();
@@ -2535,10 +2535,12 @@ function renderScadenze(){
   entries.forEach(([k,v],idx)=>{
     const isScad=k<today;
     const isOggi=k===today;
-    const dotColor=isScad?'#C0000C':isOggi?'var(--orange)':'#2D3F54';
-    const bgColor=isScad?'rgba(192,0,12,0.06)':isOggi?'var(--orange-bg)':'var(--surface2)';
-    const borderColor=isScad?'rgba(192,0,12,0.2)':isOggi?'rgba(232,66,10,0.25)':'var(--border)';
-    const label=isScad?'Scaduto':isOggi?'Oggi':'';
+    // Se scaduto ma tutti pagati → verde
+    const tuttiPagati=v.ordini.every(o=>o.pagamento==='PAGATO');
+    const dotColor=isScad&&tuttiPagati?'#22C55E':isScad?'#C0000C':isOggi?'var(--orange)':'#2D3F54';
+    const bgColor=isScad&&tuttiPagati?'rgba(34,197,94,0.07)':isScad?'rgba(192,0,12,0.06)':isOggi?'var(--orange-bg)':'var(--surface2)';
+    const borderColor=isScad&&tuttiPagati?'rgba(34,197,94,0.25)':isScad?'rgba(192,0,12,0.2)':isOggi?'rgba(232,66,10,0.25)':'var(--border)';
+    const label=isScad&&tuttiPagati?'Pagato':isScad?'Scaduto':isOggi?'Oggi':'';
 
     const detailRows=v.ordini.map(o=>`
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border);">
