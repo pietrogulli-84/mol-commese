@@ -687,7 +687,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <!-- Sezione contratto e fornitore -->
       <div class="grid5" style="grid-template-columns:1fr 1fr;">
         <div class="fg"><label>DATA INVIO</label><input type="date" id="o_data"></div>
-        <div class="fg"><label>N° ODA</label><input type="text" id="o_oda" placeholder="Es. 545004591"></div>
+        <div class="fg">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+            <label style="margin:0;">N° ODA / PDF</label>
+            <button type="button" onclick="addOdaRow()" style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border:1px dashed var(--border2);border-radius:var(--radius);background:transparent;color:var(--text3);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Aggiungi
+            </button>
+          </div>
+          <div id="odaList" style="display:flex;flex-direction:column;gap:5px;"></div>
+        </div>
         <div class="fg"><label>N° CONTRATTO *</label>
           <select id="o_contratto" onchange="onOrdineContrattoChange()" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;background:var(--surface);">
             <option value="">— seleziona —</option>
@@ -1971,6 +1979,16 @@ function loadScript(src){
   });
 }
 
+function toggleOdaMenu(id){
+  const el=document.getElementById(id);
+  if(!el) return;
+  const open=el.style.display==='block';
+  // Chiudi tutti gli altri
+  document.querySelectorAll('[id^="om_"]').forEach(m=>m.style.display='none');
+  el.style.display=open?'none':'block';
+  if(!open) setTimeout(()=>document.addEventListener('click',function h(){el.style.display='none';document.removeEventListener('click',h);}),0);
+}
+
 /* ── ORDINI ── */
 let ORDINI_DB=[];
 let ordineEditId=null;
@@ -2015,7 +2033,7 @@ function renderOrdini(){
       <td style="font-size:11px;font-weight:500;">${o.contratto||'—'}</td>
       <td class="bold" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;">${o.cliente||'—'}</td>
       <td style="font-size:12px;">${o.fornitore||'—'}</td>
-      <td style="font-size:11px;font-family:'DM Mono',monospace;">${o.oda||'—'}</td>
+      <td style="font-size:11px;font-family:'DM Mono',monospace;">${(o.oda_list||[]).map(r=>r.oda).filter(Boolean).join(', ')||o.oda||'—'}</td>
       <td style="font-size:11px;text-align:center;"><span style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;">${o.rata||'Unica'}</span></td>
       <td class="r mono" style="background:rgba(45,63,84,0.04);">${euro(imp)}</td>
       <td class="r mono" style="background:rgba(45,63,84,0.04);color:var(--text3);">${euro(iva)}</td>
@@ -2031,6 +2049,29 @@ function renderOrdini(){
       <td style="background:rgba(26,107,42,0.04);font-size:11px;color:var(--text2);">${o.data_scadenza?df(o.data_scadenza):'—'}</td>
       <td style="font-size:11px;">${consegnaStr}</td>
       <td style="text-align:right;white-space:nowrap;">
+        ${(()=>{
+          const links=(o.oda_list||[]).filter(r=>r.url);
+          if(!links.length&&!o.pdf_url) return '';
+          const allLinks=links.length?links:[{oda:o.oda||'PDF',url:o.pdf_url}];
+          if(allLinks.length===1){
+            const href=allLinks[0].url.replace('www.dropbox.com','dl.dropboxusercontent.com').replace('?dl=0','');
+            return`<a href="${href}" target="_blank" title="Apri PDF: ${allLinks[0].oda||'PDF'}" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;background:rgba(192,0,12,0.08);color:#C0000C;text-decoration:none;margin-right:2px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="11" y2="17"/></svg>
+            </a>`;
+          }
+          // Multiple: dropdown
+          return`<div style="position:relative;display:inline-block;margin-right:2px;">
+            <button onclick="toggleOdaMenu('om_${o.id}')" style="display:inline-flex;align-items:center;gap:3px;width:36px;height:28px;border-radius:6px;background:rgba(192,0,12,0.08);color:#C0000C;border:none;cursor:pointer;justify-content:center;font-size:11px;font-weight:600;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>${allLinks.length}
+            </button>
+            <div id="om_${o.id}" style="display:none;position:absolute;right:0;top:32px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);box-shadow:0 4px 16px rgba(0,0,0,0.12);min-width:160px;z-index:100;overflow:hidden;">
+              ${allLinks.map(l=>`<a href="${l.url.replace('www.dropbox.com','dl.dropboxusercontent.com').replace('?dl=0','')}" target="_blank" style="display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;color:var(--text);text-decoration:none;border-bottom:1px solid var(--border);" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#C0000C" stroke-width="2" style="width:12px;height:12px;flex-shrink:0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+                ${l.oda||'PDF'}
+              </a>`).join('')}
+            </div>
+          </div>`;
+        })()}
         <button class="btn btn-ghost btn-sm" onclick="editOrdine('${o.id}')" title="Modifica" style="margin-right:2px;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
@@ -2054,7 +2095,12 @@ function openOrdineForm(id){
   // Reset o carica valori esistenti
   const o=id?ORDINI_DB.find(x=>x.id===id):null;
   document.getElementById('o_data').value=o?.data_invio||'';
-  document.getElementById('o_oda').value=o?.oda||'';
+  // ODA rows
+  document.getElementById('odaList').innerHTML='';
+  odaRowN=0;
+  const odaRows=o?.oda_list?.length?o.oda_list:(o?.oda?[{oda:o.oda,url:o.pdf_url||''}]:[]);
+  if(odaRows.length) odaRows.forEach(r=>addOdaRow(r.oda||'',r.url||''));
+  else addOdaRow();
   document.getElementById('o_contratto').value=o?.commessa_id||'';
   document.getElementById('o_cliente').value=o?.cliente||'';
   document.getElementById('o_fornitore').value=o?.fornitore||'';
@@ -2128,7 +2174,31 @@ function onOrdineFornitoreChange(){
   }
 }
 
-let currentPayMode='100';
+let odaRowN=0;
+function addOdaRow(oda='',url=''){
+  odaRowN++;const n=odaRowN;
+  const div=document.createElement('div');
+  div.id='oda_row_'+n;
+  div.style.cssText='display:grid;grid-template-columns:1fr 1fr auto;gap:5px;align-items:center;';
+  div.innerHTML=`
+    <input type="text" id="oda_n_${n}" value="${oda}" placeholder="N° ODA (opz.)" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:'DM Mono',monospace;outline:none;">
+    <input type="url" id="oda_url_${n}" value="${url}" placeholder="Link PDF Dropbox (opz.)" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;">
+    <button type="button" onclick="document.getElementById('oda_row_${n}').remove()" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:4px;" title="Rimuovi">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>`;
+  document.getElementById('odaList').appendChild(div);
+}
+
+function getOdaRows(){
+  const rows=[];
+  document.querySelectorAll('[id^="oda_row_"]').forEach(div=>{
+    const n=div.id.replace('oda_row_','');
+    const oda=document.getElementById('oda_n_'+n)?.value||'';
+    const url=document.getElementById('oda_url_'+n)?.value||'';
+    if(oda||url) rows.push({oda,url});
+  });
+  return rows;
+}
 const TIPI_PAG=['Bonifico','Riba 30gg','Riba 30gg data fattura fm','Riba 60gg'];
 
 function tipoPagSelect(id,val=''){
@@ -2272,10 +2342,15 @@ async function saveOrdine(){
     contratto:c?.num_contratto||'',
     cliente:c?.cliente||document.getElementById('o_cliente').value,
     fornitore:document.getElementById('o_fornitore').value,
-    oda:document.getElementById('o_oda').value,
+    oda:getOdaRows()[0]?.oda||'',
+    oda_list:getOdaRows(),
+    pdf_url:getOdaRows()[0]?.url||'',
     data_invio:document.getElementById('o_data').value,
     imp, pay_mode:currentPayMode, rate,
     sett_da, sett_a, sett_anno,
+    oda:getOdaRows()[0]?.oda||'',
+    oda_list:getOdaRows(),
+    pdf_url:getOdaRows()[0]?.url||'',
     creato:ordineEditId?(ORDINI_DB.find(x=>x.id===baseId)?.creato||new Date().toISOString()):new Date().toISOString(),
   };
   // Crea un oggetto per rata (con suffisso _r1, _r2 se più rate)
