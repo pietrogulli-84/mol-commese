@@ -954,7 +954,7 @@ function setSyncStatus(status){
   lbl.textContent=status==='syncing'?'Sincronizzazione...':status==='error'?'Errore connessione':'Connesso';
 }
 
-async function loadData(){
+async function loadData(retry=0){
   setSyncStatus('syncing');
   try{
     const [rows, cfgRows] = await Promise.all([
@@ -989,9 +989,15 @@ async function loadData(){
     setSyncStatus('ok');
     render();
   }catch(e){
-    setSyncStatus('error');
-    showToast('Errore caricamento dati',true);
-    console.error(e);
+    if(retry<3){
+      const delay=[1000,3000,6000][retry];
+      showToast(`Connessione in corso... (tentativo ${retry+2}/4)`);
+      setTimeout(()=>loadData(retry+1),delay);
+    } else {
+      setSyncStatus('error');
+      showToast('Errore caricamento dati — riprova con il tasto aggiorna',true);
+      console.error(e);
+    }
   }
 }
 
