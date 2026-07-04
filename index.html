@@ -591,6 +591,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <button onclick="setCronoFilter('daposare')" id="cf_da" class="ordini-tab-btn active" style="font-size:11px;padding:3px 10px;">Da posare</button>
           <button onclick="setCronoFilter('posati')" id="cf_pos" class="ordini-tab-btn" style="font-size:11px;padding:3px 10px;">Posati</button>
         </div>
+        <div style="margin-left:auto;">
+          <input type="text" id="cronoSearch" placeholder="🔍 Cerca cliente..." oninput="renderCrono()"
+            style="padding:5px 10px;border:1px solid var(--border2);border-radius:var(--radius);font-size:12px;font-family:'DM Sans',sans-serif;outline:none;width:180px;">
+        </div>
       </div>
       <div class="crono-wrap" style="max-height:calc(100vh - 220px);overflow-y:auto;overflow-x:auto;">
         <table class="crono-tbl" id="cronoTable">
@@ -2858,6 +2862,8 @@ function renderCrono(){
 
   // Filtra e ordina
   let righe=Object.values(CRONO_DB);
+  const cronoSearch=(document.getElementById('cronoSearch')?.value||'').toLowerCase().trim();
+  if(cronoSearch) righe=righe.filter(r=>r.cliente.toLowerCase().includes(cronoSearch));
   if(cronoFilter==='daposare') righe=righe.filter(r=>!isCronoPostato(r));
   if(cronoFilter==='posati') righe=righe.filter(r=>isCronoPostato(r));
   if(cronoSort==='posa') righe.sort((a,b)=>getCronoPostaData(a).localeCompare(getCronoPostaData(b)));
