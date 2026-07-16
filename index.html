@@ -1651,6 +1651,8 @@ function render(){
       <tr class="exp-end-${c.id}" style="display:none;"><td colspan="13" style="padding:0;border-bottom:2px solid var(--border2);"></td></tr>`;
     }).join('')}</tbody>
   </table>`;
+  const annullateN=filtered.filter(c=>c.annullato).length;
+  document.getElementById('tblTitle').textContent=filteredStats.length===DB.filter(c=>!c.annullato).length?`Tutte le commesse (${filteredStats.length}${annullateN?', '+annullateN+' annullate':''})`:(`Filtrate: ${filteredStats.length}${annullateN?' + '+annullateN+' annullate':''}`);
   updateMetrics(filteredStats);
 }
 
@@ -1691,9 +1693,6 @@ function updateMetrics(data){
   document.getElementById('m5s').innerHTML=n&&ricPosaMedio!==null?`<div class="mcard-detail">posa ${ric(ricPosaMedio)}</div>`:'';
 
   document.getElementById('topBadge').textContent=n?`${n} commess${n===1?'a':'e'}`:'— commesse';
-  const annullateN=filtered.filter(c=>c.annullato).length;
-  document.getElementById('tblTitle').textContent=n===DB.length?`Tutte le commesse (${n}${annullateN?', '+annullateN+' annullate':''})`:(`Filtrate: ${filteredStats.length} di ${DB.filter(c=>!c.annullato).length}${annullateN?' + '+annullateN+' annullate':''}`);
-
 }
 
 /* FORNITORI CON SCONTI PREDEFINITI */
