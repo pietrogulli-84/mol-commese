@@ -2591,7 +2591,7 @@ function getOrdiniEvents(){
     while(d<=venA){
       const dw=d.getDay();
       if(dw>=1&&dw<=5){
-        const key=d.toISOString().slice(0,10);
+        const key=localISO(d);
         if(!map[key]) map[key]={};
         const cli=o.cliente||'—';
         if(!map[key][cli]) map[key][cli]=new Set();
@@ -2637,7 +2637,7 @@ function renderCal(){
     giorni.forEach(g=>html+=`<div class="cal-head-day">${g}</div>`);
     const cur=new Date(start);
     for(let i=0;i<42;i++){
-      const key=cur.toISOString().slice(0,10);
+      const key=localISO(cur);
       const isToday=key===today;
       const isOther=cur.getMonth()!==m;
       const evs=events[key]||[];
@@ -2661,7 +2661,7 @@ function renderCal(){
     let html=`<div class="cal-grid-sett">`;
     for(let i=0;i<5;i++){
       const d=new Date(lun); d.setDate(lun.getDate()+i);
-      const key=d.toISOString().slice(0,10);
+      const key=localISO(d);
       const isToday=key===today;
       const evs=events[key]||[];
       html+=`<div class="cal-sett-col">
@@ -2672,6 +2672,11 @@ function renderCal(){
     html+=`</div>`;
     document.getElementById('calGrid').innerHTML=html;
   }
+}
+
+// Helper: data locale in formato YYYY-MM-DD (evita sfasamento UTC)
+function localISO(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 /* ── CRONOPROGRAMMA ── */
@@ -2823,7 +2828,7 @@ function getCronoPostaData(riga){
 
 function isCronoPostato(riga){
   // Ha celle nel passato
-  const today=new Date().toISOString().slice(0,10);
+  const today=localISO(new Date());
   return Object.keys(riga.celle||{}).some(k=>k<today);
 }
 
@@ -2840,7 +2845,7 @@ function setCronoFilter(f){
 
 function renderCrono(){
   const days=getCronoDays();
-  const today=new Date().toISOString().slice(0,10);
+  const today=localISO(new Date());
   const mesi=['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
   const m1=cronoStart.getMonth();
   const m2=(m1+1)%12;
@@ -2854,10 +2859,26 @@ function renderCrono(){
   days.forEach(d=>{if(d.month!==curM){if(curM>=0)months.push({m:curM,y:d.y,count:curCount});curM=d.month;curCount=1;}else curCount++;});
   if(curM>=0)months.push({m:curM,y:days[days.length-1].y,count:curCount});
 
+  function getWeekNum(d){
+    const jan4=new Date(d.getFullYear(),0,4);
+    const startW1=new Date(jan4);
+    startW1.setDate(jan4.getDate()-((jan4.getDay()+6)%7));
+    return Math.floor((d-startW1)/(7*24*3600*1000))+1;
+  }
+
   document.getElementById('cronoHead').innerHTML=`
     <tr>
       <th style="position:sticky;left:0;z-index:3;min-width:160px;"></th>
       ${months.map((m,i)=>`<th colspan="${m.count}" class="${i===0?'crono-month-sep':''}" style="text-align:center;background:#E8EDF2;color:#2D3F54;font-weight:600;font-size:11px;padding:5px;">${mesi[m.m]} ${m.y}</th>`).join('')}
+    </tr>
+    <tr>
+      <th style="position:sticky;left:0;z-index:3;background:var(--surface2);font-size:10px;color:var(--text3);">SETT.</th>
+      ${days.map((d,i)=>{
+        const isLun=d.date.getDay()===1;
+        const isFirst=d.date.getDate()===1;
+        const wn=getWeekNum(d.date);
+        return`<th class="${isFirst&&i>0?'crono-month-sep':''}" style="background:var(--surface2);color:var(--text3);font-size:9px;padding:2px 0;text-align:center;">${isLun||i===0?wn:''}</th>`;
+      }).join('')}
     </tr>
     <tr>
       <th style="position:sticky;left:0;z-index:3;background:var(--surface2);">CLIENTE</th>
@@ -2865,7 +2886,7 @@ function renderCrono(){
         const isSab=d.date.getDay()===6;
         const isDom=d.date.getDay()===0;
         const isFest=isFestivo(d.date);
-        const isToday=d.date.toISOString().slice(0,10)===today;
+        const isToday=localISO(d.date)===today;
         const isFirst=d.date.getDate()===1;
         const festBg=isFest||isDom||isSab?'background:#F9E8E8;color:#C0000C;':'';
         return`<th class="${isSab||isDom?'sab':''} ${isFirst&&i>0?'crono-month-sep':''}" style="${isToday?'background:rgba(59,130,246,0.15);color:#2563EB;font-weight:700;':festBg}min-width:26px;">${d.date.getDate()}</th>`;
@@ -2904,7 +2925,7 @@ function renderCrono(){
         </div>
       </td>
       ${days.map((d,i)=>{
-        const dateKey=d.date.toISOString().slice(0,10);
+        const dateKey=localISO(d.date);
         const state=riga.celle[dateKey]||'';
         const isSab=d.date.getDay()===6;
         const isDom=d.date.getDay()===0;
@@ -2930,7 +2951,7 @@ function exportCronoXLSX(){
     try{
       const days=getCronoDays();
       const mesi=['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
-      const today=new Date().toISOString().slice(0,10);
+      const today=localISO(new Date());
 
       // Righe filtrate e ordinate
       let righe=Object.values(CRONO_DB);
@@ -2971,7 +2992,7 @@ function exportCronoXLSX(){
       righe.forEach(riga=>{
         const row=[riga.cliente];
         days.forEach(d=>{
-          const k=d.date.toISOString().slice(0,10);
+          const k=localISO(d.date);
           const s=riga.celle[k]||'';
           row.push(s==='M'?'M':s==='P'?'P':s==='F'?'●':'');
         });
@@ -2984,7 +3005,7 @@ function exportCronoXLSX(){
       for(let c=1;c<days.length+2;c++) cellStyles[`1_${c}`]='FF2D3F54';
       // Riga 2 = giorni
       days.forEach((d,i)=>{
-        const k=d.date.toISOString().slice(0,10);
+        const k=localISO(d.date);
         const isSab=d.date.getDay()===6,isDom=d.date.getDay()===0;
         const isFest=isFestivo(d.date);
         const isT=k===today;
@@ -2993,7 +3014,7 @@ function exportCronoXLSX(){
       // Righe clienti
       righe.forEach((riga,ri)=>{
         days.forEach((d,ci)=>{
-          const k=d.date.toISOString().slice(0,10);
+          const k=localISO(d.date);
           const s=riga.celle[k]||'';
           const isSab=d.date.getDay()===6,isDom=d.date.getDay()===0;
           const isFest=isFestivo(d.date);
