@@ -304,7 +304,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       </div>
     </div>
     <div class="topbar-right">
-      <span class="topbar-badge"><span class="sync-dot" id="syncDot"></span><span id="syncStatus">Connessione...</span></span>
+      <span class="topbar-badge" id="syncBadge" style="display:none;"><span class="sync-dot" id="syncDot"></span><span id="syncStatus">Connessione...</span></span>
       <div class="topbar-badge" id="topBadge">— commesse</div>
       <button class="btn btn-primary" id="btnNuovoOrdine" onclick="openOrdineForm()" style="display:none;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -942,7 +942,11 @@ async function sbFetch(path, opts={}){
       ...opts.headers
     }
   });
-  if(!res.ok){const e=await res.text();throw new Error(e);}
+  if(!res.ok){
+    const e=await res.text();
+    console.error(`sbFetch error ${res.status} on ${path}:`, e);
+    throw new Error(`HTTP ${res.status}: ${e}`);
+  }
   const txt=await res.text();
   return txt?JSON.parse(txt):null;
 }
@@ -990,13 +994,14 @@ async function loadData(retry=0){
     render();
   }catch(e){
     if(retry<3){
-      const delay=[1000,3000,6000][retry];
-      showToast(`Connessione in corso... (tentativo ${retry+2}/4)`);
+      const delay=[2000,4000,8000][retry];
+      setSyncStatus('syncing');
       setTimeout(()=>loadData(retry+1),delay);
     } else {
       setSyncStatus('error');
-      showToast('Errore caricamento dati — riprova con il tasto aggiorna',true);
-      console.error(e);
+      const msg=e?.message||String(e);
+      showToast('Errore: '+msg.slice(0,80),true);
+      console.error('loadData failed after 4 attempts:', e);
     }
   }
 }
@@ -1482,10 +1487,11 @@ async function toggleAnnullaCommessa(id){
   setSyncStatus('syncing');
   try{
     await sbFetch('commesse?id=eq.'+id,{method:'PATCH',body:JSON.stringify({data:c}),headers:{'Prefer':'return=minimal'}});
+    setSyncStatus('ok');
     showToast(nuovoStato?'Contratto annullato':'Contratto riattivato');
     render();
-    openDtl(id); // riapre aggiornato
-  }catch(e){showToast('Errore salvataggio',true);}
+    openDtl(id);
+  }catch(e){setSyncStatus('error');showToast('Errore salvataggio',true);}
 }
 
 async function deleteCommessa(id){
@@ -1493,6 +1499,7 @@ async function deleteCommessa(id){
   setSyncStatus('syncing');
   try{
     await sbFetch('commesse?id=eq.'+id,{method:'DELETE',prefer:'return=minimal'});
+    setSyncStatus('ok');
     closeDtl();
     await loadData();
     showToast('Commessa eliminata');
