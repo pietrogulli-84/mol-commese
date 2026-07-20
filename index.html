@@ -2029,14 +2029,21 @@ function loadScript(src){
   });
 }
 
-function toggleOdaMenu(id){
+function toggleOdaMenu(id, btn){
   const el=document.getElementById(id);
   if(!el) return;
   const open=el.style.display==='block';
-  // Chiudi tutti gli altri
   document.querySelectorAll('[id^="om_"]').forEach(m=>m.style.display='none');
-  el.style.display=open?'none':'block';
-  if(!open) setTimeout(()=>document.addEventListener('click',function h(){el.style.display='none';document.removeEventListener('click',h);}),0);
+  if(!open){
+    const rect=btn.getBoundingClientRect();
+    el.style.top=(rect.bottom+4)+'px';
+    el.style.right=(window.innerWidth-rect.right)+'px';
+    el.style.left='auto';
+    el.style.display='block';
+    setTimeout(()=>document.addEventListener('click',function h(e){
+      if(!el.contains(e.target)){el.style.display='none';document.removeEventListener('click',h);}
+    }),0);
+  }
 }
 
 /* ── ORDINI ── */
@@ -2104,21 +2111,24 @@ function renderOrdini(){
           if(!links.length&&!o.pdf_url) return '';
           const allLinks=links.length?links:[{oda:o.oda||'PDF',url:o.pdf_url}];
           if(allLinks.length===1){
-            const href=allLinks[0].url.replace('www.dropbox.com','dl.dropboxusercontent.com').replace('?dl=0','');
+            const href=allLinks[0].url;
             return`<a href="${href}" target="_blank" title="Apri PDF: ${allLinks[0].oda||'PDF'}" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;background:rgba(192,0,12,0.08);color:#C0000C;text-decoration:none;margin-right:2px;">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="11" y2="17"/></svg>
             </a>`;
           }
           // Multiple: dropdown
-          return`<div style="position:relative;display:inline-block;margin-right:2px;">
-            <button onclick="toggleOdaMenu('om_${o.id}')" style="display:inline-flex;align-items:center;gap:3px;width:36px;height:28px;border-radius:6px;background:rgba(192,0,12,0.08);color:#C0000C;border:none;cursor:pointer;justify-content:center;font-size:11px;font-weight:600;">
+          return`<div style="position:static;display:inline-block;margin-right:2px;">
+            <button onclick="event.stopPropagation();toggleOdaMenu('om_${o.id}',this)" style="display:inline-flex;align-items:center;gap:3px;width:36px;height:28px;border-radius:6px;background:rgba(192,0,12,0.08);color:#C0000C;border:none;cursor:pointer;justify-content:center;font-size:11px;font-weight:600;">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>${allLinks.length}
             </button>
-            <div id="om_${o.id}" style="display:none;position:absolute;right:0;top:32px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);box-shadow:0 4px 16px rgba(0,0,0,0.12);min-width:160px;z-index:100;overflow:hidden;">
-              ${allLinks.map(l=>`<a href="${l.url.replace('www.dropbox.com','dl.dropboxusercontent.com').replace('?dl=0','')}" target="_blank" style="display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;color:var(--text);text-decoration:none;border-bottom:1px solid var(--border);" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#C0000C" stroke-width="2" style="width:12px;height:12px;flex-shrink:0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
-                ${l.oda||'PDF'}
-              </a>`).join('')}
+            <div id="om_${o.id}" style="display:none;position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);box-shadow:0 4px 20px rgba(0,0,0,0.18);min-width:200px;z-index:999;overflow:hidden;">
+              ${allLinks.map(l=>{
+                const href=l.url;
+                return`<a href="${href}" target="_blank" onclick="document.getElementById('om_${o.id}').style.display='none'" style="display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:12px;color:var(--text);text-decoration:none;border-bottom:1px solid var(--border);" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#C0000C" stroke-width="2" style="width:13px;height:13px;flex-shrink:0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+                  ${l.oda||'PDF'}
+                </a>`;
+              }).join('')}
             </div>
           </div>`;
         })()}
